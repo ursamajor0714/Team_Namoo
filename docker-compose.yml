@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./Team_Navigation_server
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Team_Navigation_server:/app
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  frontend:
+    build: ./Team_Navigation_Front
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./Team_Navigation_Front:/app
+      - /app/node_modules
+    depends_on:
+      - backend
