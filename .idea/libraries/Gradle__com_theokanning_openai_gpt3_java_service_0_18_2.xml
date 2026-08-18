@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="Gradle: com.theokanning.openai-gpt3-java:service:0.18.2" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="com.theokanning.openai-gpt3-java" artifactId="service" version="0.18.2" baseVersion="0.18.2" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.theokanning.openai-gpt3-java/service/0.18.2/530329ed5faf15e7ef1523a2207e2b6f305c3299/service-0.18.2.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.theokanning.openai-gpt3-java/service/0.18.2/4134355e8758b19b8be8d3921e0e2fd8645048d6/service-0.18.2-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="Gradle: org.springframework.boot:spring-boot-h2console:4.1.0" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="org.springframework.boot" artifactId="spring-boot-h2console" version="4.1.0" baseVersion="4.1.0" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-h2console/4.1.0/75ab11e1aa5dc474682eef07ce5092483ecb311e/spring-boot-h2console-4.1.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-h2console/4.1.0/2262abf4365db1c6b465100130cd06b43cfda304/spring-boot-h2console-4.1.0-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

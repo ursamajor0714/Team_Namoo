@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="Gradle: org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.21" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="org.jetbrains.kotlin" artifactId="kotlin-stdlib-jdk8" version="2.3.21" baseVersion="2.3.21" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk8/2.3.21/82bd61b853e2e3dbb2124b2adc693d9c16557bed/kotlin-stdlib-jdk8-2.3.21.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk8/2.3.21/114750c3625f9fdfb6dd568add7b3629d2c52627/kotlin-stdlib-jdk8-2.3.21-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

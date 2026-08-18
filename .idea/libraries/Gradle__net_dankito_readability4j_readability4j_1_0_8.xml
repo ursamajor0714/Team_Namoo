@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="Gradle: net.dankito.readability4j:readability4j:1.0.8" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="net.dankito.readability4j" artifactId="readability4j" version="1.0.8" baseVersion="1.0.8" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.dankito.readability4j/readability4j/1.0.8/8c8bc2f5f988a406ca229f4fc365a5c0b7fbef03/readability4j-1.0.8.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.dankito.readability4j/readability4j/1.0.8/70a855d690b2c720af7f5799ee69b47139df23d7/readability4j-1.0.8-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
