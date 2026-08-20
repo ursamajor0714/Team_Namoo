@@ -5,8 +5,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,12 +41,14 @@ public class NewsCollectionService {
     private final NaverNewsApiClient apiClient;
     private final ArticleTextExtractor textExtractor;
     private final NewsSummaryService summaryService;
+    private final CollectedLinkStore linkStore;
 
     public NewsCollectionService(NaverNewsApiClient apiClient, ArticleTextExtractor textExtractor,
-                                  NewsSummaryService summaryService) {
+                                  NewsSummaryService summaryService, CollectedLinkStore linkStore) {
         this.apiClient = apiClient;
         this.textExtractor = textExtractor;
         this.summaryService = summaryService;
+        this.linkStore = linkStore;
     }
 
     /**
@@ -51,7 +61,51 @@ public class NewsCollectionService {
     public List<NewsArticle> collect(String query, int totalCount, int start, String sort, boolean summarize)
             throws IOException {
         List<NaverNewsItem> items = fetchAllItems(query, totalCount, start, sort);
-        return scrapeAll(items, summarize);
+        List<NewsArticle> articles = scrapeAll(items, summarize);
+        return dedupeByContent(articles);
+    }
+
+    /**
+     * 링크는 다르지만 여러 언론사가 그대로 재배포한(연합뉴스 등 통신사 기사) 동일 기사를 걸러낸다.
+     * 본문의 공백을 모두 제거한 뒤 해시로 지문(fingerprint)을 만들어 비교한다 -
+     * 같은 실행 안에서의 중복은 물론, CollectedLinkStore에 기록해두어 이후 실행에서도 같은 기사가 다시 나오지 않는다.
+     * 본문 추출이 실패해 내용이 비어 있는 기사는 비교할 수 없으므로 중복 판단에서 제외(항상 포함)한다.
+     */
+    private List<NewsArticle> dedupeByContent(List<NewsArticle> articles) {
+        Set<String> seenThisRun = new HashSet<>();
+        List<NewsArticle> result = new ArrayList<>();
+        List<String> newFingerprints = new ArrayList<>();
+
+        for (NewsArticle article : articles) {
+            String fingerprint = contentFingerprint(article.content());
+            if (fingerprint == null) {
+                result.add(article);
+                continue;
+            }
+            if (linkStore.isCollected(fingerprint) || !seenThisRun.add(fingerprint)) {
+                // 이전 실행이나 이번 실행에서 이미 나온 동일 본문(재배포 기사)라 건너뛴다
+                continue;
+            }
+            newFingerprints.add(fingerprint);
+            result.add(article);
+        }
+
+        linkStore.markCollected(newFingerprints);
+        return result;
+    }
+
+    private String contentFingerprint(String content) {
+        if (content == null || content.isBlank()) {
+            return null;
+        }
+        String normalized = content.replaceAll("\\s+", "");
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(normalized.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /**
@@ -60,20 +114,24 @@ public class NewsCollectionService {
      * 항상 최소 10을 요청한다 - 그 결과 totalCount보다 몇 건 더 모일 수 있어 마지막에 잘라낸다.
      * start가 1000을 넘어가거나(네이버 하드 리밋), 남은 start 여유가 최소 요청량(10)보다 적거나,
      * 더 이상 결과가 없으면 중단한다.
+     * 이전에 이미 수집했던 기사(CollectedLinkStore에 기록된 링크)는 건너뛴다 -
+     * 같은 쿼리로 여러 번 수집해도(관련도순이라 매번 같은 상위 기사가 나옴) 중복 없이 새 기사만 모이게 된다.
      */
     private List<NaverNewsItem> fetchAllItems(String query, int totalCount, int start, String sort)
             throws IOException {
-        List<NaverNewsItem> allItems = new ArrayList<>();
+        // originalLink 기준으로 중복 기사를 제거한다(같은 기사가 여러 페이지에 걸쳐 다시 나오는 경우 방지).
+        // LinkedHashMap이라 처음 나온 순서(관련도/최신순)는 그대로 유지된다.
+        Map<String, NaverNewsItem> uniqueItems = new LinkedHashMap<>();
         int currentStart = start;
 
-        while (allItems.size() < totalCount && currentStart <= NAVER_MAX_START) {
+        while (uniqueItems.size() < totalCount && currentStart <= NAVER_MAX_START) {
             int startCapacity = NAVER_MAX_START - currentStart + 1;
             if (startCapacity < NAVER_MIN_DISPLAY_PER_CALL) {
                 // 최소 요청량(10)조차 채울 start 여유가 없으면 더 못 가져온다
                 break;
             }
 
-            int remaining = totalCount - allItems.size();
+            int remaining = totalCount - uniqueItems.size();
             int callDisplay = Math.max(NAVER_MIN_DISPLAY_PER_CALL, Math.min(NAVER_MAX_DISPLAY_PER_CALL, remaining));
             callDisplay = Math.min(callDisplay, startCapacity);
 
@@ -82,7 +140,13 @@ public class NewsCollectionService {
                 break;
             }
 
-            allItems.addAll(page);
+            for (NaverNewsItem item : page) {
+                if (linkStore.isCollected(item.originalLink())) {
+                    // 예전 실행에서 이미 뽑았던 기사라 건너뛴다
+                    continue;
+                }
+                uniqueItems.putIfAbsent(item.originalLink(), item);
+            }
             currentStart += page.size();
 
             if (page.size() < callDisplay) {
@@ -92,10 +156,15 @@ public class NewsCollectionService {
         }
 
         // 마지막 페이지에서 최소 요청량(10)을 채우느라 totalCount보다 더 모였을 수 있어 잘라낸다
-        if (allItems.size() > totalCount) {
-            return allItems.subList(0, totalCount);
+        List<NaverNewsItem> result = new ArrayList<>(uniqueItems.values());
+        if (result.size() > totalCount) {
+            result = result.subList(0, totalCount);
         }
-        return allItems;
+
+        // 이번에 새로 뽑은 기사들을 기록해서, 다음 수집 때는 다시 나오지 않게 한다
+        linkStore.markCollected(result.stream().map(NaverNewsItem::originalLink).toList());
+
+        return result;
     }
 
     /**

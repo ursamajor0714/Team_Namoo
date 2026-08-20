@@ -2,16 +2,20 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <annotationProcessing>
+      <profile default="true" name="Default" enabled="true" />
       <profile name="Gradle Imported" enabled="true">
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.projectlombok/lombok/1.18.46/a5cfe99fdf320e84955ef653f2ce1bf789d11385/lombok-1.18.46.jar" />
         </processorPath>
-        <module name="Team_Navigation_server.test" />
-        <module name="Team_Navigation_server.main" />
+        <module name="Team_Namoo_server.test" />
+        <module name="Team_Namoo_server.main" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="Team_Namoo_server" target="21" />
+      <module name="Team_Namoo_server.main" target="21" />
+      <module name="Team_Namoo_server.test" target="21" />
       <module name="Team_Navigation_server" target="21" />
       <module name="Team_Navigation_server.main" target="21" />
       <module name="Team_Navigation_server.test" target="21" />
@@ -19,6 +23,9 @@
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="Team_Namoo_server" options="-parameters" />
+      <module name="Team_Namoo_server.main" options="-parameters" />
+      <module name="Team_Namoo_server.test" options="-parameters" />
       <module name="Team_Navigation_server" options="-parameters" />
       <module name="Team_Navigation_server.main" options="-parameters" />
       <module name="Team_Navigation_server.test" options="-parameters" />
