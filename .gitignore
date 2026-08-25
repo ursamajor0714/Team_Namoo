@@ -13,3 +13,12 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# ML model weights (too large for git, GitHub 100MB limit)
+models/
+classification-api/model/
+classification-api/__pycache__/
+*.pyc
+
+# 로컬 전용 시크릿
+application-local.properties
