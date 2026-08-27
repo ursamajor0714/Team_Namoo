@@ -22,6 +22,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-h2console'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    // BCryptPasswordEncoder (회원 비밀번호 해싱) - 시큐리티 필터체인 없이 암호화 유틸만 사용
+    implementation 'org.springframework.security:spring-security-crypto'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.h2database:h2'
