@@ -60,18 +60,29 @@ public class NewsCollectionService {
      */
     public List<NewsArticle> collect(String query, int totalCount, int start, String sort, boolean summarize)
             throws IOException {
-        List<NaverNewsItem> items = fetchAllItems(query, totalCount, start, sort);
+        return collect(query, totalCount, start, sort, summarize, true);
+    }
+
+    /**
+     * @param track false면 CollectedLinkStore를 조회/기록하지 않는다 - 화면에 그냥 보여주기만 하는 호출(새로고침 등)이
+     *              "이미 봤던 기사"로 영구 기록되어 다음 요청부터 계속 다른(더 하위 순위) 기사만 나오는 것을 막기 위함.
+     *              학습 데이터 수집(export)처럼 실행 간 중복을 막아야 할 때만 true로 호출한다.
+     */
+    public List<NewsArticle> collect(String query, int totalCount, int start, String sort, boolean summarize,
+                                      boolean track) throws IOException {
+        List<NaverNewsItem> items = fetchAllItems(query, totalCount, start, sort, track);
         List<NewsArticle> articles = scrapeAll(items, summarize);
-        return dedupeByContent(articles);
+        return dedupeByContent(articles, track);
     }
 
     /**
      * 링크는 다르지만 여러 언론사가 그대로 재배포한(연합뉴스 등 통신사 기사) 동일 기사를 걸러낸다.
      * 본문의 공백을 모두 제거한 뒤 해시로 지문(fingerprint)을 만들어 비교한다 -
-     * 같은 실행 안에서의 중복은 물론, CollectedLinkStore에 기록해두어 이후 실행에서도 같은 기사가 다시 나오지 않는다.
+     * 같은 실행 안에서의 중복은 항상 걸러내고, track이 true일 때만 CollectedLinkStore에 기록해두어
+     * 이후 실행에서도 같은 기사가 다시 나오지 않게 한다.
      * 본문 추출이 실패해 내용이 비어 있는 기사는 비교할 수 없으므로 중복 판단에서 제외(항상 포함)한다.
      */
-    private List<NewsArticle> dedupeByContent(List<NewsArticle> articles) {
+    private List<NewsArticle> dedupeByContent(List<NewsArticle> articles, boolean track) {
         Set<String> seenThisRun = new HashSet<>();
         List<NewsArticle> result = new ArrayList<>();
         List<String> newFingerprints = new ArrayList<>();
@@ -82,7 +93,7 @@ public class NewsCollectionService {
                 result.add(article);
                 continue;
             }
-            if (linkStore.isCollected(fingerprint) || !seenThisRun.add(fingerprint)) {
+            if ((track && linkStore.isCollected(fingerprint)) || !seenThisRun.add(fingerprint)) {
                 // 이전 실행이나 이번 실행에서 이미 나온 동일 본문(재배포 기사)라 건너뛴다
                 continue;
             }
@@ -90,7 +101,9 @@ public class NewsCollectionService {
             result.add(article);
         }
 
-        linkStore.markCollected(newFingerprints);
+        if (track) {
+            linkStore.markCollected(newFingerprints);
+        }
         return result;
     }
 
@@ -114,10 +127,10 @@ public class NewsCollectionService {
      * 항상 최소 10을 요청한다 - 그 결과 totalCount보다 몇 건 더 모일 수 있어 마지막에 잘라낸다.
      * start가 1000을 넘어가거나(네이버 하드 리밋), 남은 start 여유가 최소 요청량(10)보다 적거나,
      * 더 이상 결과가 없으면 중단한다.
-     * 이전에 이미 수집했던 기사(CollectedLinkStore에 기록된 링크)는 건너뛴다 -
+     * track이 true면 이전에 이미 수집했던 기사(CollectedLinkStore에 기록된 링크)는 건너뛴다 -
      * 같은 쿼리로 여러 번 수집해도(관련도순이라 매번 같은 상위 기사가 나옴) 중복 없이 새 기사만 모이게 된다.
      */
-    private List<NaverNewsItem> fetchAllItems(String query, int totalCount, int start, String sort)
+    private List<NaverNewsItem> fetchAllItems(String query, int totalCount, int start, String sort, boolean track)
             throws IOException {
         // originalLink 기준으로 중복 기사를 제거한다(같은 기사가 여러 페이지에 걸쳐 다시 나오는 경우 방지).
         // LinkedHashMap이라 처음 나온 순서(관련도/최신순)는 그대로 유지된다.
@@ -141,7 +154,7 @@ public class NewsCollectionService {
             }
 
             for (NaverNewsItem item : page) {
-                if (linkStore.isCollected(item.originalLink())) {
+                if (track && linkStore.isCollected(item.originalLink())) {
                     // 예전 실행에서 이미 뽑았던 기사라 건너뛴다
                     continue;
                 }
@@ -161,8 +174,10 @@ public class NewsCollectionService {
             result = result.subList(0, totalCount);
         }
 
-        // 이번에 새로 뽑은 기사들을 기록해서, 다음 수집 때는 다시 나오지 않게 한다
-        linkStore.markCollected(result.stream().map(NaverNewsItem::originalLink).toList());
+        if (track) {
+            // 이번에 새로 뽑은 기사들을 기록해서, 다음 수집 때는 다시 나오지 않게 한다
+            linkStore.markCollected(result.stream().map(NaverNewsItem::originalLink).toList());
+        }
 
         return result;
     }
@@ -226,7 +241,9 @@ public class NewsCollectionService {
                     item.description(),
                     item.pubDate(),
                     extracted.content(),
-                    summary
+                    summary,
+                    extracted.contentHtml(),
+                    extracted.imageUrl()
             );
         } catch (Exception e) {
             log.warn("본문 추출 실패, 건너뜀: {} ({})", item.originalLink(), e.getMessage());

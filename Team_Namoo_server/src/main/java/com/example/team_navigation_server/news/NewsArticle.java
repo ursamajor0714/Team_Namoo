@@ -11,6 +11,8 @@ public record NewsArticle(
         String description,
         String pubDate,
         String content,
-        String summary
+        String summary,
+        String contentHtml,
+        String imageUrl
 ) {
 }

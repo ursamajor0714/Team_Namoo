@@ -42,7 +42,9 @@ def _load():
             )
         _tokenizer = AutoTokenizer.from_pretrained(str(MODEL_DIR))
         _model = AutoModelForSequenceClassification.from_pretrained(str(MODEL_DIR))
-        _model.to("cuda" if torch.cuda.is_available() else "cpu")
+        # 이 서버의 GPU(구형, compute capability 6.1)가 지금 설치된 torch CUDA 빌드와
+        # 커널 호환이 안 돼 추론 시 에러가 나서 CPU로 고정한다.
+        _model.to("cpu")
         _model.eval()
     return _model, _tokenizer
 

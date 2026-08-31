@@ -5,6 +5,7 @@ import net.dankito.readability4j.Readability4J;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.safety.Safelist;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,14 +68,23 @@ public class ArticleTextExtractor {
                 .timeout(TIMEOUT_MS)
                 .get();
 
-        // 제목은 원본 문서 기준으로 뽑는다 (readability4j/노이즈 제거 전에 먼저 처리)
+        // 제목은 원본 문서 기준으로 뽑는다 (노이즈 제거 전에 먼저 처리)
         String title = extractTitle(doc);
+        // 카드 썸네일용 대표 이미지. 본문 HTML에서 첫 <img>를 그냥 쓰면 기자 프로필 아이콘 등이 걸릴 수 있어서,
+        // 언론사가 링크 미리보기용으로 직접 지정해두는 og:image 메타태그를 대신 사용한다.
+        String imageUrl = doc.select("meta[property=og:image]").attr("content").trim();
 
-        String content = extractContentWithReadability(url, doc.outerHtml());
+        // 댓글/글자크기/인쇄/광고 등 UI 잔재를 readability4j에 넘기기 전에 먼저 제거해야
+        // readability4j가 이를 본문으로 잘못 포함시키는 걸 막을 수 있다.
+        doc.select(NOISE_SELECTORS).remove();
+
+        ReadabilityResult readability = extractContentWithReadability(url, doc.outerHtml());
+        String content = readability.text();
+        String contentHtml = readability.html();
         if (content.isBlank()) {
-            // readability4j가 실패했거나 결과가 짧으면 자체 방식으로 폴백
-            doc.select(NOISE_SELECTORS).remove();
+            // readability4j가 실패했거나 결과가 짧으면 자체 방식으로 폴백 (이 경우 서식 있는 HTML은 포기)
             content = extractContent(doc);
+            contentHtml = "";
         }
 
         if (content.isBlank()) {
@@ -83,23 +93,39 @@ public class ArticleTextExtractor {
             throw new IOException("본문 추출 결과가 비어 있음 (JS 렌더링 페이지 등으로 추정): " + url);
         }
 
-        return new ExtractedArticle(title, content);
+        return new ExtractedArticle(title, content, contentHtml, imageUrl);
     }
 
-    private String extractContentWithReadability(String url, String rawHtml) {
+    /**
+     * 텍스트(학습 데이터용)와 함께, 프론트 모달에 그대로 렌더링할 수 있는 기사 본문 HTML(이미지/문단 서식 포함)도 뽑는다.
+     * readability4j가 뽑은 본문 HTML은 외부 사이트에서 온 신뢰할 수 없는 내용이라
+     * Jsoup Safelist로 스크립트/이벤트속성 등을 제거해 XSS를 방지한 뒤 돌려준다.
+     */
+    private ReadabilityResult extractContentWithReadability(String url, String rawHtml) {
         try {
             Readability4J readability4J = new Readability4J(url, rawHtml);
             Article article = readability4J.parse();
             String text = article.getTextContent();
             if (text == null) {
-                return "";
+                return new ReadabilityResult("", "");
             }
             text = text.trim();
-            return text.length() >= MIN_CANDIDATE_LENGTH ? text : "";
+            if (text.length() < MIN_CANDIDATE_LENGTH) {
+                return new ReadabilityResult("", "");
+            }
+
+            String rawContentHtml = article.getContent();
+            String safeHtml = rawContentHtml == null
+                    ? ""
+                    : Jsoup.clean(rawContentHtml, url, Safelist.relaxed().addAttributes("img", "src", "alt"));
+            return new ReadabilityResult(text, safeHtml);
         } catch (Exception e) {
             log.warn("readability4j 본문 추출 실패, 기존 방식으로 대체: {}", e.getMessage());
-            return "";
+            return new ReadabilityResult("", "");
         }
+    }
+
+    private record ReadabilityResult(String text, String html) {
     }
 
     /**
@@ -162,7 +188,7 @@ public class ArticleTextExtractor {
         return body != null ? body.text().trim() : "";
     }
 
-    public record ExtractedArticle(String title, String content) {
+    public record ExtractedArticle(String title, String content, String contentHtml, String imageUrl) {
     }
 
     /**
