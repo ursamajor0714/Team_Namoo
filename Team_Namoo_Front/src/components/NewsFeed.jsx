@@ -54,6 +54,7 @@ function NewsFeed({ fetchFn, emptyMessage = '표시할 뉴스가 없습니다.' 
       </main>
 
       <NewsModal
+        key={selectedArticle?.originalLink}
         article={selectedArticle}
         onClose={() => setSelectedArticle(null)}
       />

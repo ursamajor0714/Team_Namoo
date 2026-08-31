@@ -1,21 +1,25 @@
-import { useState } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import HomePage from './pages/HomePage'
 import PartyPage from './pages/PartyPage'
+import LoginPage from './pages/LoginPage'
+import SignupPage from './pages/SignupPage'
+import { useAuthStore } from './store/authStore'
 import './App.css'
 
 function App() {
-  // 로그인 연동 전까지는 항상 비로그인 상태 - 로그인/회원가입 버튼이 뜬다.
-  const [user] = useState(null)
+  const user = useAuthStore((state) => state.user)
+  const logout = useAuthStore((state) => state.logout)
 
   return (
     <>
-      <Navbar user={user} />
+      <Navbar user={user} onLogout={logout} />
 
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/party/:name" element={<PartyPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
       </Routes>
     </>
   )

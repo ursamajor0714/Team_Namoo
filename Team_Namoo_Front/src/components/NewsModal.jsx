@@ -15,7 +15,6 @@ function NewsModal({ article, onClose }) {
   }, [onClose])
 
   useEffect(() => {
-    setLeaning(null)
     if (!article) {
       return
     }

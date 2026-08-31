@@ -1,0 +1,279 @@
+================================================================================
+ Team_Namoo 백엔드 작업 명세
+================================================================================
+ 작성: 프론트 담당 (Team_Namoo_Front 작업 중 확인)
+ 대상: 백엔드 담당 (Team_Namoo_server)
+ 기준일: 2026-08-31
+
+ 프론트엔드 작업 중 확인된, 백엔드에서 처리해야 하는 항목 전체.
+ 회원 시스템 완성에 필요한 DB 영속성 / 검증 / 스키마 변경 / 외부 연동 정리.
+
+--------------------------------------------------------------------------------
+ 요약
+--------------------------------------------------------------------------------
+  #  항목                우선순위   한 줄
+  1  DB 영속성            P0        재시작마다 회원 데이터 소멸 (H2 인메모리)
+  2  회원가입 검증        P0        길이/복잡도/빈값 검증 전무 -> Bean Validation
+  3  중복 검사 API        P1        실시간 중복확인용 조회 엔드포인트 없음
+  4  컬럼 길이 제한       P2        전부 VARCHAR(255) - 길이 명시 필요
+  5  스키마 변경          P1        주소/가입경로/정당/Plus여부 저장할 곳 없음
+  6  주소 검색            P2        카카오(다음) 우편번호 위젯 연동
+  7  이메일 인증          P1        코드 발송/검증 API + 메일 발송 수단
+  8  기존 버그            P1        필드 누락 시 500, 406 등
+  9  참고: 현재 API       -         기존 auth 엔드포인트 / 로그인 유지
+
+
+================================================================================
+ 1. DB 영속성                                                              [P0]
+================================================================================
+ 세션(서버) 재시작 시 members 등 전체 테이블이 사라진다.
+
+ [현상]
+ - application.properties 에 datasource 설정이 없음
+   -> Spring Boot 가 H2 를 인메모리로 자동 구동 (jdbc:h2:mem:<랜덤UUID>)
+ - 임베디드 인메모리라 Hibernate ddl-auto 가 create-drop
+   -> 기동 시 테이블 생성, 종료 시 삭제
+ - 회원가입해도 ./gradlew bootRun 재시작하면 계정이 전부 날아감
+ - 뉴스 데이터는 외부에서 매번 가져오므로 무관, members 만 문제
+
+ [조치 A - 파일 기반 H2 (추가 인프라 0)]
+   spring.datasource.url=jdbc:h2:file:./data/team_namoo;AUTO_SERVER=TRUE
+   spring.datasource.username=sa
+   spring.datasource.password=
+   spring.jpa.hibernate.ddl-auto=update
+ -> Team_Namoo_server/data/team_namoo.mv.db 에 저장, 재시작해도 유지
+ -> data/ 는 .gitignore 추가
+
+ [조치 B - MySQL 전환 (권장, 팀 스택)]
+ - mysql-connector-j 는 이미 build.gradle 에 존재
+ - docker-compose.yml 에 MySQL 서비스 추가
+ - application-docker.properties 분리
+ - 스키마 마이그레이션 도구(Flyway) 검토
+
+
+================================================================================
+ 2. 회원가입 검증 부재 -> Bean Validation                                  [P0]
+================================================================================
+ 서버는 사실상 아무 검증도 하지 않는다.
+ 프론트 검증은 우회 가능하므로 서버가 최종 방어선.
+
+ [현상 - 실제 요청으로 확인됨]
+ - 아이디/비밀번호/닉네임 길이 제한 전무 - 1자도 통과
+ - 빈 문자열 "" 통과. @Column(nullable=false) 는 "" 를 막지 못함
+ - 비밀번호 복잡도 없음 - 프론트는 대소문자+숫자+특수문자 8자+ (1q2w#e4R 형태)를
+   강제하지만 서버엔 규칙이 없음
+ - 이메일 형식 검사 없음 - notanemail 통과
+ - 중복 검사는 loginId / email 만 (닉네임 없음)
+ - 필수 필드를 누락하면 DataIntegrityViolationException -> 500 + 스택트레이스 (400 아님)
+
+ [조치]
+ build.gradle:
+   implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+ SignupRequest - 프론트 규칙과 동기화:
+   @NotBlank
+   @Pattern(regexp = "^[A-Za-z0-9]{4,20}$", message = "아이디는 영문·숫자 4~20자")
+   private String loginId;
+
+   @NotBlank
+   @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$",
+            message = "비밀번호는 대·소문자, 숫자, 특수문자를 모두 포함해 8자 이상")
+   private String password;
+
+   @NotBlank @Email @Size(max = 100)
+   private String email;
+
+   @NotBlank @Size(min = 2, max = 12)
+   private String nickname;
+
+ - LoginRequest: @NotBlank loginId / password
+ - 컨트롤러: signup(@Valid @RequestBody SignupRequest request)
+ - GlobalExceptionHandler 에 @ExceptionHandler(MethodArgumentNotValidException.class)
+   추가 -> 400 + 필드별 메시지 맵 반환 (프론트는 필드 아래에 그대로 표시함)
+ - 닉네임 비속어 필터는 프론트에만 있음 - 서버에도 둘지 정책 결정
+
+ [참고 - 프론트 현재 검증 규칙]
+ - 아이디  ^[A-Za-z0-9]{4,20}$
+ - 비밀번호 ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$
+ - 닉네임  2~12자 + 금지어 목록 (src/constants/bannedWords.js)
+ - 이메일  ^[^\s@]+@[^\s@]+\.[^\s@]+$
+
+
+================================================================================
+ 3. 중복 검사 조회 API                                                     [P1]
+================================================================================
+ 실시간 "중복확인" 버튼이 부를 엔드포인트가 없다.
+
+ - 현재 existsByLoginId / existsByEmail 는 signup() 내부에서만 호출
+   -> 프론트는 제출 시 400 으로만 중복을 알 수 있음
+ - 프론트의 [중복확인] 버튼은 지금 비활성 상태. 아래 API 가 나오면 활성화
+
+ [조치]
+   GET /api/members/exists?loginId=xxx   -> { "available": true|false }
+   GET /api/members/exists?email=xxx     -> { "available": true|false }
+
+ - 닉네임 중복을 허용할지 결정. 불허면 ?nickname= 도 추가
+
+
+================================================================================
+ 4. 컬럼 길이 제한                                                         [P2]
+================================================================================
+ @Column 에 length 가 없어 모든 문자열 컬럼이 VARCHAR(255).
+
+ - 사실상 길이 제한이 없는 것과 같음 (아이디에 200자도 저장됨)
+ - Bean Validation(항목 2)이 입력을 막더라도 스키마 레벨에서도 명시하는 게 안전
+
+   @Column(nullable=false, unique=true, length=20)  private String loginId;
+   @Column(nullable=false, length=60)               private String password;  // BCrypt 60자
+   @Column(nullable=false, unique=true, length=100) private String email;
+   @Column(nullable=false, length=12)               private String nickname;
+
+
+================================================================================
+ 5. 스키마 변경 - 신규 테이블 + members 컬럼                               [P1]
+================================================================================
+ 프론트 회원가입 폼이 수집하지만 SignupRequest(loginId/password/email/nickname 4개)에
+ 없어 저장할 곳이 없는 데이터.
+
+ [신규 테이블]
+
+ parties - 정당 마스터
+   id            PK
+   name          VARCHAR unique   -- 더불어민주당 / 국민의힘 / 조국혁신당 / 진보당 / 개혁신당
+   is_active     BOOLEAN          -- '기타정당'(보류)은 is_active=false 로 관리
+   * 프론트 정당 목록은 현재 src/constants/parties.js 에 하드코딩.
+     seed 방식(초기 데이터 vs 관리자 입력) 결정 필요.
+
+ member_addresses - 주소
+   id              PK
+   member_id       FK -> members
+   zipcode         VARCHAR(5)
+   address_base    VARCHAR   -- 도로명 또는 지번
+   address_detail  VARCHAR   -- 동/호수 등
+   * 1:1이면 members 컬럼으로도 가능하나, 배송지 여러 개 대비하면 별도 테이블
+
+ signup_channels - 가입경로 (테이블 vs 컬럼 결정)
+   id     PK
+   name   VARCHAR   -- 인스타그램 / 페이스북 / 커뮤니티 / 검색 / ...
+   * 가입경로는 가입 시점 1회성 통계 정보라 members.signup_channel VARCHAR enum
+     컬럼으로도 충분. 마스터 테이블로 갈지 결정.
+
+ [members 신규 컬럼]
+   supported_party_id   FK -> parties      NOT NULL   -- 가입 시 필수 선택
+   is_plus_member       BOOLEAN  DEFAULT false        -- Plus 회원권 (타 정당 글쓰기 허용)
+   custom_party_name    VARCHAR  NULL                 -- '기타정당' 직접입력 (현재 보류 -> nullable)
+   email_verified       BOOLEAN  DEFAULT false        -- 이메일 인증 (항목 7)
+   signup_channel       VARCHAR  NULL                 -- signup_channels 테이블 안 만들 경우
+   agree_marketing      BOOLEAN  DEFAULT false        -- 마케팅 수신 동의 (선택 약관)
+   terms_agreed_at      TIMESTAMP                     -- 필수 약관 동의 시각 (법적 근거)
+
+ [DTO 확장]
+ - SignupRequest: zipcode, addressBase, addressDetail, supportedParty(또는 id),
+   signupChannel, agreeMarketing 추가
+ - MemberResponse: 필요 시 supportedParty, isPlusMember 노출
+ - 스펙 확정되면 프론트가 전송 필드를 추가함 (현재는 4필드만 전송)
+
+
+================================================================================
+ 6. 주소 검색 연동                                                         [P2]
+================================================================================
+ 현재 우편번호/주소는 text 3칸 직접 입력. 검색 UI 필요.
+
+ [권장 - 카카오(다음) 우편번호 서비스]
+ - 구 "Daum 우편번호" - 무료, API 키 불필요
+ - 프론트 임베드 스크립트:
+     //t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js
+ - 팝업/레이어에서 주소 선택 -> 우편번호 + 도로명/지번 주소 콜백 반환
+   -> 프론트가 필드 채움
+ - 백엔드는 저장만. 검증은 우편번호 5자리 숫자 정도
+
+ 대안: 행정안전부 도로명주소 API (서버 연동, 사용 승인 필요) - 이 규모엔 오버스펙.
+ 프론트 위젯 작업이며 백엔드 부담은 거의 없음.
+
+
+================================================================================
+ 7. 이메일 인증 연동                                                       [P1]
+================================================================================
+ 프론트 "인증" 버튼은 현재 비활성. 코드 발송/검증 흐름 전체가 백엔드 몫.
+
+ [흐름]
+ 1. POST /api/members/email/send-code  { email }
+      -> 6자리 코드 생성, TTL 5분으로 저장, 메일 발송 -> 200
+ 2. POST /api/members/email/verify     { email, code }
+      -> 일치 & 미만료면 200 (+ 검증 토큰 또는 서버 세션에 기록)
+ 3. 가입 시 해당 이메일이 검증됐는지 확인, 또는 members.email_verified = true
+
+ [구현]
+ - build.gradle: spring-boot-starter-mail
+ - 발송 수단: 개발은 Gmail SMTP (앱 비밀번호, 일 500통 제한)
+              운영은 AWS SES / 네이버 클라우드 Outbound Mailer / SendGrid 중 택1
+ - application-local.properties: spring.mail.host / port / username / password (git 미추적)
+ - 코드 저장: Redis 권장 (SETEX TTL)
+              도입 어려우면 email_verifications 테이블
+              (email, code, expires_at, verified, attempts)
+ - 재발송 rate limit (예: 60초), 시도 횟수 제한
+
+
+================================================================================
+ 8. 기존 버그                                                              [P1]
+================================================================================
+ - 필수 필드 누락 -> 500 (스택트레이스 노출).
+   Bean Validation(항목 2) 도입 시 자동 해결.
+   그 전 임시 조치: GlobalExceptionHandler 에 DataIntegrityViolationException -> 400
+
+ - 406 Not Acceptable: Accept: */* 단독 요청(예: 순수 curl)에서 발생.
+   axios 는 application/json, text/plain, */* 를 보내 실제 앱엔 영향 없음. 우선순위 낮음.
+   String 반환 대신 JSON 객체({ "message": "..." }) 반환으로 정리하면 해소.
+
+ - GlobalExceptionHandler 가 member 패키지 안에 있음
+   -> 전역 처리기이므로 공통 위치로 이동 검토
+
+
+================================================================================
+ 9. 참고 - 현재 auth API                                                   [-]
+================================================================================
+ 변경 금지가 아니라 확장 대상. 프론트가 이미 이 계약에 맞춰 연동돼 있음.
+
+   POST /api/members/signup   { loginId, password, email, nickname }
+        -> 200 "회원가입 성공"
+   POST /api/members/login    { loginId, password }
+        -> 200 "로그인 성공" + Set-Cookie: JSESSIONID
+   GET  /api/members/me
+        -> 200 { id, loginId, email, nickname } | 401
+   POST /api/members/logout
+        -> 200 "로그아웃 성공"
+
+ - 세션 쿠키 방식. JSESSIONID 는 세션 쿠키 (브라우저 종료 시 만료)
+ - CORS: @CrossOrigin(origins="http://localhost:5173", allowCredentials="true")
+   -> MemberController 에 이미 적용됨 (프론트 세션 쿠키 송수신용)
+ - 실패 시 400 + 한글 메시지 문자열 (GlobalExceptionHandler)
+
+ ["로그인 유지" - 백엔드 필요]
+ 프론트에 체크박스만 있음. 실제로 유지하려면 서버가 server.servlet.session.timeout 을
+ 늘리거나, remember-me 토큰 + 영속 쿠키(Max-Age 지정)를 발급해야 함.
+ 현재는 UI 상태일 뿐.
+
+
+================================================================================
+ 결정 필요 (백엔드 / 팀)
+================================================================================
+ - DB: 파일 기반 H2 vs MySQL 전환
+ - 가입경로: 마스터 테이블(signup_channels) vs members enum 컬럼
+ - 닉네임 중복 허용 여부 / 비속어 필터를 서버에도 둘지
+ - 이메일 인증: 필수(미인증 시 가입 차단) vs 선택(email_verified 플래그만)
+ - 인증 코드 저장: Redis 도입 여부
+ - parties 테이블 seed 방식 (초기 데이터 하드코딩 vs 관리자)
+ - 주소: 단일 주소(members 컬럼) vs 다중(member_addresses)
+ - 실패 응답 포맷: 현재 문자열 -> JSON 객체로 통일할지
+
+
+================================================================================
+ 임시 코드 참고 (member 시스템과 무관)
+================================================================================
+ 네이버 뉴스 API 일별 쿼터 소진 대응으로 프론트 담당이 아래를 추가했음:
+ - news/LocalNewsSource.java (신규)
+ - application.properties 의 news.use-local-file=true
+ - NewsCollectionService.collect() 내 분기
+
+ 쿼터 회복 시 이 설정과 클래스를 제거하면 원복.
+================================================================================

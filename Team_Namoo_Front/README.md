@@ -1,16 +1,34 @@
-# React + Vite
+# Team_Namoo_Front
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+정치 뉴스 피드 + 정당별 페이지 프론트엔드. React 19 + Vite.
 
-Currently, two official plugins are available:
+## 개발
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev      # http://localhost:5173
+```
 
-## React Compiler
+백엔드(`Team_Namoo_server`)가 `http://localhost:8080` 에 떠 있어야 뉴스 API가 동작한다.
+API 주소는 `src/api/newsApi.js` 상단 `API_BASE_URL` 에 하드코딩되어 있다.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 스크립트
 
-## Expanding the ESLint configuration
+- `npm run dev` — 개발 서버 (HMR)
+- `npm run build` — 프로덕션 번들 (`dist/`)
+- `npm run preview` — 빌드 결과 미리보기
+- `npm run lint` — ESLint
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 구조
+
+- `src/pages/` — 라우트 단위 페이지 (`HomePage`, `PartyPage`)
+- `src/components/` — `Navbar`, `NewsFeed`, `NewsCard`, `NewsModal`
+- `src/api/newsApi.js` — 백엔드 호출 (axios)
+
+## Docker
+
+레포 루트 `docker-compose.yml` 로 백엔드와 함께 기동한다.
+
+```bash
+docker compose up frontend
+```
