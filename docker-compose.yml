@@ -1,0 +1,59 @@
+# 전체 스택(프론트 + 백엔드) 한 번에
+#
+#   docker compose up          (프로젝트 루트에서)
+#
+#   프론트  http://localhost:5173
+#   백엔드  http://localhost:8080
+#
+# 정치성향 분류 서버(classification-api)는 여기 없음. 필요하면 호스트에서 따로:
+#   cd classification-api && .venv/bin/uvicorn main:app --port 8000
+#
+# 프론트만 / 백엔드만 개발하려면 각 폴더의 docker-compose.yml 을 쓰면 된다:
+#   cd Team_Namoo_Front  && docker compose up
+#   cd Team_Namoo_server && docker compose up
+# (루트 것과 8080/5173 포트가 겹치므로 동시에 띄우지 말 것)
+#
+# Node/JDK/Gradle 모두 호스트 설치 불필요 - 컨테이너가 기동 시 npm install / gradle 다운로드까지 처리.
+
+services:
+  backend:
+    image: eclipse-temurin:21-jdk
+    working_dir: /app
+    command: sh -c "chmod +x gradlew && ./gradlew bootRun --no-daemon"
+    ports:
+      - "8080:8080"
+    # Team_Namoo_server/.env 가 있으면 그 키들(NAVER_*, SPRING_MAIL_* 등)을 넣는다. 없어도 됨.
+    env_file:
+      - path: ./Team_Namoo_server/.env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CLASSIFICATION_MODEL_BASE_URL: ${CLASSIFICATION_MODEL_BASE_URL:-http://host.docker.internal:8000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./Team_Namoo_server:/app
+      - server_gradle_home:/root/.gradle
+      - server_gradle_project:/app/.gradle
+      - server_build:/app/build
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    environment:
+      # 브라우저가 호스트에 노출된 8080 으로 직접 호출한다.
+      VITE_API_BASE_URL: http://localhost:8080
+    volumes:
+      - ./Team_Namoo_Front:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  server_gradle_home:
+  server_gradle_project:
+  server_build:
+  frontend_node_modules:

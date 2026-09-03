@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────
+#  Team_Namoo 루트 .gitignore  (최종 점검: 2026-09-03)
+#  하위 폴더에도 각자 .gitignore 있음 (Team_Namoo_Front/, Team_Namoo_server/)
+# ─────────────────────────────────────────────
+
+# Node / React
+node_modules/
+dist/
+dist-ssr/
+
+# Java / Gradle
+build/
+.gradle/
+*.iml
+.idea/
+out/
+bin/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+*.swp
+
+# ML 모델 가중치 (100MB+ 라 git 에 안 올림. 팀에서 따로 받는다)
+models/
+classification-api/model/
+
+# 뉴스 수집/학습 데이터 (NewsExportService 가 만드는 출력물, 재생성 가능)
+news-export/
+
+# ─── 시크릿 / 로컬 환경 ───
+# 실제 키가 든 로컬 설정
+application-local.properties
+# 환경변수 파일: .env / *.env 는 무시, 템플릿(*.env.example)은 커밋
+.env
+*.env
+!*.env.example
+# SSH / AWS 키페어
+*.pem
+*.key
+
+# Claude Code 로컬 설정
+.claude/settings.local.json

@@ -1,0 +1,8 @@
+# EC2 에서 /etc/caddy/Caddyfile 로 사용.
+# Amplify 프론트(https)에서 이 백엔드를 부르려면 백엔드도 https 여야 한다
+# (브라우저 혼합 콘텐츠 차단). 도메인 없이 sslip.io 로 Let's Encrypt 자동 발급.
+# <탄력적IP를 하이픈으로>.sslip.io 형태. IP 바뀌면 이 호스트명도 바꿔야 함.
+
+15-165-118-162.sslip.io {
+    reverse_proxy localhost:8080
+}

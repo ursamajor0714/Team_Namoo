@@ -1,0 +1,306 @@
+====================================================================
+Team_Namoo AWS 배포 - 진행 상황 / 운영 / 트러블슈팅
+마지막 업데이트: 2026-09-03
+====================================================================
+
+전체 설계 초안은 AWS_DEPLOY_PLAN.txt (같은 docs/ 폴더). 이 파일은 "실제로 뭘 했고, 지금
+어떤 상태고, 문제 생기면 어디부터 보고, 서버는 어떻게 관리하는지".
+
+
+--------------------------------------------------------------------
+0. 현재 상태 (2026-09-03)
+--------------------------------------------------------------------
+
+  배포 파이프라인 전부 연결됨. API 레벨 검증 완료.
+  남은 것: 배포된 프론트에서 브라우저로 실제 사용 흐름 E2E 테스트 (사용자).
+
+  ┌─────────┬────────────────────────────────────────────────────────┐
+  │ 프론트  │ https://main.d11ftaq8rgsma0.amplifyapp.com/             │
+  │         │  AWS Amplify Hosting, GitHub main 브랜치 연결 자동배포  │
+  │         │  모노레포 앱루트 Team_Namoo_Front, 빌드 npm run build   │
+  │         │  env VITE_API_BASE_URL = https://15-165-118-162.sslip.io│
+  ├─────────┼────────────────────────────────────────────────────────┤
+  │ 백엔드  │ https://15-165-118-162.sslip.io   (실제로는 EC2:8080)   │
+  │         │  EC2 namoo-spring (i-07cb1d743c8eae7d1), t3.micro,      │
+  │         │  탄력적IP 15.165.118.162, Amazon Linux 2023 x86        │
+  │         │  systemd: namoo-spring (Spring jar) + caddy (HTTPS)     │
+  ├─────────┼────────────────────────────────────────────────────────┤
+  │ DB      │ namoo-db.cjkcywue246k.ap-northeast-2.rds.amazonaws.com  │
+  │         │  RDS MySQL 8.4, db.t4g.micro, DB명 teamnamoo, 유저 admin│
+  │         │  퍼블릭 액세스 X. EC2<->RDS 는 콘솔 "RDS 연결"로 SG 자동│
+  ├─────────┼────────────────────────────────────────────────────────┤
+  │ 분류    │ http://43.202.134.21:8000   (팀원 AWS 계정 EC2)         │
+  │         │  팀원 SG 8000 인바운드에 15.165.118.162/32 만 허용      │
+  │         │  분류서버 꺼지면 태그만 안 나옴 (앱은 정상, leaning=null)│
+  └─────────┴────────────────────────────────────────────────────────┘
+
+  리전 전부 서울(ap-northeast-2). 계정: 사용자 ursamajor(909643315363,
+  크레딧형 무료플랜 $120), 분류서버만 팀원 계정.
+
+
+--------------------------------------------------------------------
+1. 역할 분담 (2026-09-03 최종)
+--------------------------------------------------------------------
+
+  사용자(ursamajor0714): 프론트(Team_Namoo_Front) + Spring 백엔드
+    (Team_Namoo_server) + DB(RDS). 예전 "백엔드 건드리지 말 것" 규칙 무효.
+  팀원: classification-api (모델 서버) 전담.
+
+  * 하루에 세 번 바뀌었음. 다음 세션에 재확인 권장.
+
+
+--------------------------------------------------------------------
+2. Git 상태
+--------------------------------------------------------------------
+
+  !! 2026-09-03 git filter-repo 로 main 히스토리 재작성됨 (news-export 제거).
+     origin/main force push 됨. 옛 커밋 해시(6fb6120, 3eeefc9, fdc29cc 등)는
+     더 이상 존재하지 않는다. 다른 클론은 반드시:
+        git fetch origin && git checkout main && git reset --hard origin/main
+     (또는 재클론). 팀원 조율 완료함.
+
+  origin/main   854708d  <- 배포 기준. Amplify 가 이 브랜치를 봄.
+  origin/front  564d77a  <- 프론트 작업 브랜치 (재작성 안 함, news-export 남음)
+  origin/server dc1a366  <- 팀원 Spring 원본 브랜치 (재작성 안 함)
+
+  main 커밋 순서 (해시는 재작성돼 바뀜, 내용 순서만):
+    server 폴더 → front API URL env화 → front 병합 →
+    AI/테스트코드 제거 + 깨진파일 복구 → CORS + 배포헬퍼 →
+    CachedNewsArticle CLOB→@Lob → Caddy/세션쿠키 → 낡은 주석 정리 →
+    정크파일 정리(.idea/.gradle/news-export 등) → 배포문서
+
+  main = front 브랜치 전체 + server 브랜치의 Team_Namoo_server 폴더
+         + 그 위에 배포용 수정들.
+
+
+--------------------------------------------------------------------
+3. 백엔드 코드 변경 요약 (전부 origin/main 에 반영됨)
+--------------------------------------------------------------------
+
+[제거]
+  - OpenAI 기사요약: NewsSummaryService, OpenAiProperties, build.gradle 의
+    com.theokanning.openai-gpt3-java, application.properties 의 openai.*
+    NewsCollectionService 에서 summaryService 의존 제거
+    (NewsArticle.summary 는 항상 "" - 필드/export 는 유지).
+  - Claude / 분류 테스트 파이프라인 (원저자가 "삭제 예정"이라 명시):
+    ClaudeApiClient, ClaudeProperties, NewsClassificationService,
+    NewsClassificationController(/api/classification/test·results),
+    DailyClassificationScheduler(매분 실행 테스트 스케줄러),
+    NewsClassification 엔티티, NewsClassificationRepository,
+    application.properties 의 claude.*
+  - 유지 (프론트 분류 경로 실사용): ClassificationModelClient,
+    ClassificationModelProperties, PoliticalLeaning.
+
+[수정]
+  - SignupRequest.java, NewsArticle.java: server 브랜치 커밋에서 파일 끝이
+    잘려 커밋돼 있어("reached end of file") main 컴파일 자체가 안 됐음.
+    SignupRequest 는 검증 애노테이션 유지하고 생성자/게터 복구,
+    NewsArticle 은 contentHtml/imageUrl 필드 복구.
+  - CachedNewsArticle: @Column(columnDefinition="CLOB") (H2 문법) → @Lob.
+    안 고치면 MySQL 테이블 생성 DDL 이 "near 'CLOB'" 로 깨져서 뉴스 캐시
+    전멸 (500). description/content/contentHtml/summary 4개 필드.
+  - CorsConfig: allowedOrigins 를 app.cors.allowed-origins (쉼표 구분,
+    env APP_CORS_ALLOWED_ORIGINS) 로 주입 가능하게. 기본값에
+    http://localhost:5173 + https://main.d11ftaq8rgsma0.amplifyapp.com.
+  - application.properties: naver.client-id/secret 평문 제거 →
+    ${NAVER_CLIENT_ID:} / ${NAVER_CLIENT_SECRET:}.
+    classification.model.base-url → ${CLASSIFICATION_MODEL_BASE_URL:http://localhost:8000}.
+
+[추가]
+  - Team_Namoo_server/deploy/namoo-spring.service   (systemd, jar 직접 실행)
+  - Team_Namoo_server/deploy/namoo-spring.env.example (환경변수 템플릿)
+  - Team_Namoo_server/deploy/Caddyfile, deploy/caddy.service (HTTPS 프록시)
+  - classification-api/deploy/ec2-setup.sh (팀원 분류서버 세팅 스크립트)
+
+[정리]
+  - .idea/, Team_Namoo_server/.gradle/ git 추적 해제 (파일은 디스크에 남음).
+  - 루트 빈 package.json/package-lock.json, news-export/(13MB), 미사용
+    LocalNewsSource.java, .DS_Store 삭제.
+  - .gitignore: *.pem *.key *.env news-export/ .venv 등 정리.
+  - docker-compose.yml, Dockerfile ×2 는 유지 (로컬 개발용).
+
+
+--------------------------------------------------------------------
+4. Spring 을 RDS 에 붙이는 법 - 코드 수정 불필요, 실행 환경변수만
+--------------------------------------------------------------------
+
+  application.properties 는 로컬 H2 로 하드코딩돼 있지만 Spring 이 환경변수를
+  properties 보다 우선하므로, systemd 유닛의 EnvironmentFile 로 아래를 주면
+  그대로 덮어써진다. (실제 파일은 EC2 의 ~/app/namoo-spring.env, git 미포함)
+
+  (실제 값이 채워진 파일은 EC2 의 ~/app/namoo-spring.env 에만 있다.
+   아래는 키 목록만 - 값은 커밋 금지)
+
+    SPRING_DATASOURCE_URL=jdbc:mysql://namoo-db.cjkcywue246k.ap-northeast-2.rds.amazonaws.com:3306/teamnamoo
+    SPRING_DATASOURCE_USERNAME=admin
+    SPRING_DATASOURCE_PASSWORD          = (RDS 마스터 암호, 사용자 메모장)
+    SPRING_DATASOURCE_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
+    SPRING_JPA_HIBERNATE_DDL_AUTO=update   (없으면 MySQL 은 테이블 생성 안 함!)
+    SPRING_H2_CONSOLE_ENABLED=false
+    NAVER_CLIENT_ID / NAVER_CLIENT_SECRET  = (기존 키 그대로. git 히스토리에 노출돼 있음)
+    SPRING_MAIL_USERNAME=jyrp3026@gmail.com
+    SPRING_MAIL_PASSWORD                = (Gmail 앱 비밀번호, 사용자 메모장)
+    CLASSIFICATION_MODEL_BASE_URL=http://43.202.134.21:8000
+    SERVER_FORWARD_HEADERS_STRATEGY=framework           (Caddy 뒤 https 인식)
+    SERVER_SERVLET_SESSION_COOKIE_SAME_SITE=none        (크로스오리진 쿠키)
+    SERVER_SERVLET_SESSION_COOKIE_SECURE=true
+
+  data.sql (parties 시드) 는 MySQL 호환됨. ddl-auto=update +
+  defer-datasource-initialization=true 로 테이블 생성 후 실행.
+  주의: parties.name UNIQUE 없으면 재시작마다 시드 중복 INSERT.
+
+
+--------------------------------------------------------------------
+5. 한 일 - 시간순 (2026-09-03, 하루)
+--------------------------------------------------------------------
+
+  Git/코드
+   1. origin/server 의 Team_Namoo_server 폴더만 main 에 반영.
+   2. 프론트 API URL 하드코딩 → VITE_API_BASE_URL 환경변수. npm run build 통과.
+   3. front → main 병합.
+   4. 백엔드 정리: OpenAI/Claude/테스트코드 제거, 시크릿 환경변수화,
+      깨진 파일 2개 복구, build/ 추적 해제. bootJar 성공.
+   5. CorsConfig 에 Amplify origin, deploy 헬퍼 파일들.
+   6. CachedNewsArticle CLOB → @Lob (배포 중 발견한 버그).
+   7. Caddy 설정 + 세션쿠키 env 헬퍼.
+   8. 낡은 "테스트/삭제예정" 주석 정리.
+   9. 정크파일 정리 (.idea/.gradle/news-export/루트 package.json 등).
+  10. git filter-repo 로 news-export 를 main 히스토리에서 완전 제거, force push.
+
+  AWS 콘솔 (사용자)
+   - classification-api EC2(namoo-model) 만들었다가 역할 이관으로 삭제.
+   - Amplify 앱 생성 → GitHub main 연결 → 배포 (env 임시 localhost).
+   - RDS MySQL namoo-db 생성.
+   - EC2 namoo-spring 생성 (SG namoo-spring-sg: 22←내IP, 8080/80/443←전체),
+     탄력적 IP 15.165.118.162 연결.
+   - EC2↔RDS "RDS 데이터베이스 연결" 기능으로 SG 자동 연결.
+   - Amplify env VITE_API_BASE_URL → https://15-165-118-162.sslip.io, 재배포.
+
+  EC2 세팅 (Claude 가 SSH 로)
+   - swap 2GB, java-21-amazon-corretto 설치.
+   - ~/app/app.jar + ~/app/namoo-spring.env, systemd namoo-spring 등록.
+     (java -Xmx512m -XX:+UseSerialGC, t3.micro 1GB 대응)
+   - Caddy 바이너리 설치, /etc/caddy/Caddyfile (15-165-118-162.sslip.io →
+     localhost:8080), systemd caddy. Let's Encrypt 자동 발급 성공.
+   - 분류서버 주소를 namoo-spring.env 에 반영, 재시작.
+
+  보안
+   - AWS 키페어 team-namoo-model.pem → ~/.ssh/, chmod 400.
+   - Gmail 발신계정 jyrp3026@gmail.com + 앱 비밀번호 확보.
+   - NAVER 키: 재발급 안 하고 기존 키 그대로 (사용자 결정). 코드에선 제거,
+     값은 EC2 env 로만. git 히스토리엔 아직 노출돼 있음.
+
+  검증 완료 (API 레벨)
+   - https://15-165-118-162.sslip.io/api/news → 200 + 실제 뉴스 데이터
+   - /api/news/by-leaning → 200
+   - POST /api/news/classify → {"leaning":"진보"} (분류서버까지 왕복)
+   - 로그인 응답: Set-Cookie JSESSIONID ...; Secure; SameSite=None,
+     Access-Control-Allow-Credentials: true, Allow-Origin: <amplify>
+   - NewsCacheRefreshScheduler 30분마다 동작 ("신규 26건 저장")
+
+
+--------------------------------------------------------------------
+6. 남은 일
+--------------------------------------------------------------------
+
+  사용자 (브라우저 E2E - 배포된 프론트에서):
+   [ ] 뉴스 목록 뜨는지
+   [ ] 회원가입 → jyrp3026 계정이 인증코드 메일 발송 → 입력 → 가입
+   [ ] 로그인 → 새로고침해도 유지되는지 (세션 쿠키)
+   [ ] 정당 페이지 → 분류 태그(진보/보수) 나오는지
+   [ ] 게시판 (더미 데이터, 백엔드 연동 아직 - 프론트만)
+
+  팀원:
+   [ ] 43.202.134.21 이 탄력적 IP 인지 확인 (아니면 재시작 시 주소 바뀜)
+   [ ] 분류서버 EC2 24시간 가동 유지
+
+  나중에 (선택):
+   [ ] parties.name UNIQUE 제약 (시드 중복 방지)
+   [ ] actuator 추가 (지금은 헬스체크 없음, curl /api/news 로 대체 중)
+   [ ] front/server 브랜치도 news-export 정리 (병합 시 되살아남)
+   [ ] NAVER 키 git 히스토리에서 제거 (filter-repo, 팀원 재조율 필요)
+
+
+--------------------------------------------------------------------
+7. 서버 운영 / 디버깅 명령어
+--------------------------------------------------------------------
+
+  접속:
+    ssh -i ~/.ssh/team-namoo-model.pem ec2-user@15.165.118.162
+
+  Spring:
+    sudo systemctl status namoo-spring
+    sudo systemctl restart namoo-spring
+    sudo journalctl -u namoo-spring -f              # 실시간 로그
+    sudo journalctl -u namoo-spring --since '10 min ago' -p err
+    curl localhost:8080/api/news                    # 로컬 기동 확인
+
+  Caddy (HTTPS):
+    sudo systemctl status caddy
+    sudo journalctl -u caddy -f
+    /etc/caddy/Caddyfile                            # 설정
+
+  환경변수 바꾸기:
+    vi ~/app/namoo-spring.env  (또는 sed) → sudo systemctl restart namoo-spring
+
+  jar 재배포 (코드 바뀌었을 때):
+    로컬:  cd Team_Namoo_server && ./gradlew bootJar
+    scp -i ~/.ssh/team-namoo-model.pem \
+      build/libs/Team_Namoo_server-0.0.1-SNAPSHOT.jar \
+      ec2-user@15.165.118.162:/home/ec2-user/app/app.jar
+    ssh ... "sudo systemctl restart namoo-spring"
+
+  탄력적 IP 바뀌면 (되도록 안 바꾸는 게 좋음):
+    - /etc/caddy/Caddyfile 의 호스트명 <IP-하이픈>.sslip.io 수정
+    - Amplify env VITE_API_BASE_URL 수정 + 재배포
+    - 팀원 분류서버 SG 인바운드 소스 IP 수정
+    - CorsConfig 는 env 로 관리하거나 재빌드
+
+
+--------------------------------------------------------------------
+8. 오류 수정 시 먼저 볼 것 (알려진 지뢰)
+--------------------------------------------------------------------
+
+[프론트에서 API 호출이 전부 실패 / CORS 에러]
+  - Amplify env VITE_API_BASE_URL 이 https://15-165-118-162.sslip.io 맞나?
+    빌드 시점 주입이라 값 바꾸면 반드시 재배포(redeploy).
+  - 백엔드가 http 면 브라우저가 혼합콘텐츠 차단 → 반드시 https (Caddy).
+  - CorsConfig 기본값에 Amplify origin 있음. 커스텀 도메인 붙이면
+    APP_CORS_ALLOWED_ORIGINS 에 추가.
+
+[로그인이 되는데 새로고침하면 풀림 / 로그인 자체가 안 됨]
+  - JSESSIONID 쿠키가 SameSite=None; Secure 여야 크로스오리진 유지됨.
+    namoo-spring.env 의 SERVER_SERVLET_SESSION_COOKIE_* 3개 확인.
+  - SERVER_FORWARD_HEADERS_STRATEGY=framework 없으면 Spring 이 자기가 http 인
+    줄 알고 Secure 쿠키를 안 만듦 (Caddy 가 X-Forwarded-Proto 는 보냄).
+  - 브라우저 개발자도구 > Application > Cookies 에서 JSESSIONID 속성 확인.
+
+[뉴스가 안 나옴 / 500]
+  - NewsCacheRefreshScheduler 가 아직 안 돌았으면 캐시가 비어있음
+    (기동 직후 1회 + 30분마다). journalctl 에서 "뉴스 캐시 갱신 완료" 확인.
+  - MySQL 테이블 생성 실패 → CLOB 버그 재발 가능성 (엔티티에 columnDefinition
+    "CLOB" 새로 들어왔는지). journalctl 에서 "GenerationTarget" 검색.
+  - NAVER API 일별 쿼터. 429 뜨면 고장 아니라 쿼터.
+
+[분류 태그가 안 나옴 (leaning=null)]
+  - 팀원 분류서버(43.202.134.21:8000) 살아있나:
+    EC2 에서 curl -m 45 http://43.202.134.21:8000/health
+  - 팀원 SG 8000 인바운드에 15.165.118.162/32 있나.
+  - 콜드스타트 20~40초. ClassificationModelClient callTimeout 90초.
+  - 앱은 안 죽음 - leaning=null 반환, 프론트가 태그만 숨김.
+
+[Amplify 빌드 실패]
+  - 앱루트 Team_Namoo_Front 로 잡혔나 (AMPLIFY_MONOREPO_APP_ROOT).
+  - Node 버전 (vite 8 = Node 18+). npm ci 는 package-lock.json 필요
+    (Team_Namoo_Front/package-lock.json 있음).
+
+[Spring 이 안 뜸 / 메모리]
+  - t3.micro 1GB. -Xmx512m + swap 2GB 로 버팀. free -m 확인.
+  - namoo-spring.env 문법: systemd EnvironmentFile 은 셸 아님. 따옴표/공백 주의.
+  - DB 접속 실패면 journalctl 에 HikariPool / Access denied / Unknown database.
+
+[비용]
+  - 탄력적 IP: 인스턴스 중지 상태로 두면 과금. 켜놓기.
+  - RDS 스토리지 자동조정 OFF 확인. EBS 30GB.
+  - EC2/RDS 다른 AZ 라 크로스 AZ 전송요금 소액 발생 (이 규모엔 무시).
+  - 결제 경보는 us-east-1 CloudWatch.

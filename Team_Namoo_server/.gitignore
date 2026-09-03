@@ -1,0 +1,47 @@
+HELP.md
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### App secrets / generated data ###
+# application.properties 는 이제 시크릿 없는 템플릿(${NAVER_CLIENT_ID:} 등)이라 커밋한다.
+# 실제 값은 application-local.properties(아래, git 미추적) 또는 실행 환경변수로 주입.
+src/main/resources/application-local.properties
+news-export/
+
+### 도커 ###
+.env
+!.env.example

@@ -1,0 +1,16 @@
+[Unit]
+Description=Team_Namoo Spring Boot API
+After=network.target
+
+[Service]
+User=ec2-user
+WorkingDirectory=/home/ec2-user/app
+EnvironmentFile=/home/ec2-user/app/namoo-spring.env
+# t3.micro(1GB) 라 힙을 제한하고 메모리 절약형 GC 사용
+ExecStart=/usr/bin/java -Xmx512m -XX:+UseSerialGC -jar /home/ec2-user/app/app.jar
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

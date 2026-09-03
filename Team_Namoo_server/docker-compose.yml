@@ -1,0 +1,45 @@
+# 백엔드(Spring Boot) 로컬 개발 환경
+#
+#   cd Team_Namoo_server && docker compose up
+#
+# JDK/Gradle 을 호스트에 설치할 필요 없음. 컨테이너의 gradlew 가 Gradle 을 받아
+#   ./gradlew bootRun
+# 을 실행한다. Gradle 배포판/의존성 캐시와 빌드 산출물은 named volume 에 담아
+# 호스트 폴더가 지저분해지지 않고, 다음 기동부터 빠르다.
+# (예전 방식: Dockerfile 에서 gradle build → 캐시가 없어 매번 130MB 재다운로드 + 네트워크 취약 → 이 방식으로 교체)
+#
+# DB: 기본 H2(인메모리). 서버 재시작하면 데이터 사라짐.
+# 실제 키(NAVER, Gmail 등)는 src/main/resources/application-local.properties (git 미추적) 에 두면
+# 바인드 마운트로 그대로 읽힌다. .env.example 참고.
+#
+# 접속: http://localhost:8080   (Swagger: /swagger-ui.html, H2 콘솔: /h2-console)
+
+services:
+  backend:
+    image: eclipse-temurin:21-jdk
+    working_dir: /app
+    command: sh -c "chmod +x gradlew && ./gradlew bootRun --no-daemon"
+    ports:
+      - "8080:8080"
+    # .env 가 있으면 그 안의 키(NAVER_*, SPRING_MAIL_* 등)를 환경변수로 넣는다.
+    # 없어도 됨(required: false). 없는 키는 안 넣으므로 application-local.properties 값이 그대로 유지된다.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # 정치성향 분류 서버(classification-api, FastAPI). compose 에 없고 호스트에서 따로 실행:
+      #   cd classification-api && .venv/bin/uvicorn main:app --port 8000
+      CLASSIFICATION_MODEL_BASE_URL: ${CLASSIFICATION_MODEL_BASE_URL:-http://host.docker.internal:8000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - .:/app
+      - server_gradle_home:/root/.gradle
+      - server_gradle_project:/app/.gradle
+      - server_build:/app/build
+
+volumes:
+  server_gradle_home:
+  server_gradle_project:
+  server_build:
