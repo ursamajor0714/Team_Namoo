@@ -2,6 +2,7 @@ package com.example.team_navigation_server.config;
 
 import com.example.team_navigation_server.member.Member;
 import com.example.team_navigation_server.member.MemberRepository;
+import com.example.team_navigation_server.member.MemberRole;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -32,7 +33,10 @@ public class LocalAdminInitializer implements CommandLineRunner {
             return;
         }
         String encoded = new BCryptPasswordEncoder().encode(ADMIN_RAW_PASSWORD);
-        // email/nickname 은 NOT NULL 이라 빈 문자열로 둔다(추가 정보 없음).
-        memberRepository.save(new Member(ADMIN_LOGIN_ID, encoded, "", ""));
+        // email 은 UNIQUE 라 로그인아이디를 이용한 값으로, nickname 은 빈 문자열로 둔다(추가 정보 없음).
+        Member admin = new Member(ADMIN_LOGIN_ID, encoded, ADMIN_LOGIN_ID + "@local", "관리자");
+        admin.setRole(MemberRole.SUPER_ADMIN);
+        admin.setEmailVerified(true);
+        memberRepository.save(admin);
     }
 }

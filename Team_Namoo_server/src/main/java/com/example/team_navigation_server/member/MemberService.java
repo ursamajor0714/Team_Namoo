@@ -4,6 +4,7 @@ import com.example.team_navigation_server.email.EmailVerificationService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Set;
 
 @Service
@@ -11,11 +12,14 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final EmailVerificationService emailVerificationService;
+    private final PartyRepository partyRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    public MemberService(MemberRepository memberRepository, EmailVerificationService emailVerificationService) {
+    public MemberService(MemberRepository memberRepository, EmailVerificationService emailVerificationService,
+                          PartyRepository partyRepository) {
         this.memberRepository = memberRepository;
         this.emailVerificationService = emailVerificationService;
+        this.partyRepository = partyRepository;
     }
 
     // 회원가입
@@ -34,8 +38,18 @@ public class MemberService {
                 throw new IllegalArgumentException("사용할 수 없는 닉네임입니다.");
             }
         }
+        Party party = partyRepository.findByName(request.getSupportedParty())
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 정당입니다."));
+
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         Member member = new Member(request.getLoginId(), encodedPassword, request.getEmail(), request.getNickname());
+        member.setEmailVerified(true);
+        member.setSupportedParty(party);
+        member.setSignupChannel(request.getSignupChannel());
+        member.setZipcode(request.getZipcode());
+        member.setAddressBase(request.getAddressBase());
+        member.setAddressDetail(request.getAddressDetail());
+        member.setAgreeMarketing(request.isAgreeMarketing());
         memberRepository.save(member);
     }
     // 로그인
@@ -45,12 +59,20 @@ public class MemberService {
                 if(!passwordEncoder.matches(request.getPassword(), member.getPassword())){
                     throw new IllegalArgumentException("비밀번호가 일치하지 않습니다");
         }
+                if (member.getStatus() == MemberStatus.SUSPENDED) {
+                    throw new IllegalArgumentException("정지된 계정입니다.");
+                }
+                if (member.getStatus() == MemberStatus.WITHDRAWN) {
+                    throw new IllegalArgumentException("탈퇴한 계정입니다.");
+                }
+                member.setLastAccessAt(LocalDateTime.now());
+                memberRepository.save(member);
                 return member;
     }
     public MemberResponse getMyInfo(Long memberId) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
-        return new MemberResponse(member.getId(), member.getLoginId(), member.getEmail(), member.getNickname());
+        return new MemberResponse(member.getId(), member.getLoginId(), member.getEmail(), member.getNickname(), member.getRole());
     }
 
     public boolean isLoginIdAvailable(String loginId) {

@@ -38,14 +38,14 @@ Team_Namoo_Front/src/
 - `/api/**` 어디에도 권한 체크 없음.
 
 **할 일:**
-- [ ] 🔴 `members` 에 `role` 컬럼 추가 — `USER` / `ADMIN` / `SUPER_ADMIN` (기본값 `USER`).
-- [ ] 🔴 `GET /api/members/me` 응답에 `role` 을 실어 보내기.
+- [x] 🔴 `members` 에 `role` 컬럼 추가 — `USER` / `ADMIN` / `SUPER_ADMIN` (기본값 `USER`).
+- [x] 🔴 `GET /api/members/me` 응답에 `role` 을 실어 보내기.
       → 프론트는 이 값으로 관리자 여부를 판단하게 바꾼다 (아이디 하드코딩 제거).
-- [ ] 🔴 `/api/admin/**` 모든 경로를 "로그인 + role 이 ADMIN 이상" 일 때만 통과시키기.
-      아니면 401(비로그인) / 403(권한 없음).
-- [ ] 🔴 관리자 임명·해제는 **SUPER_ADMIN 만** 가능하도록 서버에서 한 번 더 검사.
+- [x] 🔴 `/api/admin/**` 모든 경로를 "로그인 + role 이 ADMIN 이상" 일 때만 통과시키기.
+      아니면 401(비로그인) / 403(권한 없음). — `config/AdminAuthInterceptor.java`
+- [x] 🔴 관리자 임명·해제는 **SUPER_ADMIN 만** 가능하도록 서버에서 한 번 더 검사.
       (프론트 버튼 숨김은 눈속임일 뿐, 실제 방어는 서버가 한다.)
-- [ ] 🟡 `SUPER_ADMIN` 계정은 강등·정지 불가 — 서버에서도 거부.
+- [x] 🟡 `SUPER_ADMIN` 계정은 강등·정지 불가 — 서버에서도 거부.
 - [ ] 🟢 관리자 행동 기록 테이블 `admin_audit_log(id, admin_id, action, target_type, target_id, detail, created_at)`.
       회원 정지 / 글 삭제 / 광고 등록처럼 되돌리기 힘든 행동을 남긴다.
 
@@ -80,18 +80,18 @@ Team_Namoo_Front/src/
 ```
 
 **할 일 — `members` 에 추가할 컬럼:**
-- [ ] 🔴 `role` ENUM(USER/ADMIN/SUPER_ADMIN) — 위 0번
-- [ ] 🔴 `status` ENUM(ACTIVE/SUSPENDED/WITHDRAWN) 기본 ACTIVE — 정상/정지/탈퇴
-- [ ] 🔴 `email_verified` BOOLEAN 기본 false
-- [ ] 🔴 `supported_party_id` FK → `parties(id)` — 지지정당
-- [ ] 🔴 `created_at` (가입일) — 없으면 추가
-- [ ] 🟡 `signup_channel` VARCHAR — 인스타그램/페이스북/커뮤니티/검색
-- [ ] 🟡 `is_plus` BOOLEAN 기본 false
-- [ ] 🟡 `last_access_at` TIMESTAMP — 로그인할 때마다 갱신 (아래 지표 카드에서 씀)
-- [ ] 🟡 `agree_marketing` BOOLEAN, `terms_agreed_at` TIMESTAMP
-- [ ] 🟡 주소: `member_addresses(id, member_id, zipcode, address_base, address_detail)`
-      또는 `members` 에 컬럼 3개.
-- [ ] 🟡 회원가입(`SignupRequest`)에서 위 항목들 받기.
+- [x] 🔴 `role` ENUM(USER/ADMIN/SUPER_ADMIN) — 위 0번
+- [x] 🔴 `status` ENUM(ACTIVE/SUSPENDED/WITHDRAWN) 기본 ACTIVE — 정상/정지/탈퇴
+- [x] 🔴 `email_verified` BOOLEAN 기본 false
+- [x] 🔴 `supported_party_id` FK → `parties(id)` — 지지정당
+- [x] 🔴 `created_at` (가입일) — 없으면 추가
+- [x] 🟡 `signup_channel` VARCHAR — 인스타그램/페이스북/커뮤니티/검색
+- [x] 🟡 `is_plus` BOOLEAN 기본 false
+- [x] 🟡 `last_access_at` TIMESTAMP — 로그인할 때마다 갱신 (아래 지표 카드에서 씀)
+- [x] 🟡 `agree_marketing` BOOLEAN (`terms_agreed_at` 은 보류 — 안 씀)
+- [x] 🟡 주소: `members` 에 `zipcode`/`address_base`/`address_detail` 컬럼 3개로.
+- [ ] 🟡 회원가입(`SignupRequest`)에서 위 항목들 받기. (컬럼은 준비됐지만 SignupRequest는 아직
+      4개 필드만 받음 — 프론트가 전송 켜기 전에 이어서 작업 필요)
       프론트 `SignupPage.jsx` 는 이미 폼에서 주소·지지정당·가입경로·마케팅동의를 입력받고
       **전송만 막아둔 상태**(코드 주석에 표시됨). 백엔드 준비되면 프론트가 전송 켠다.
 
@@ -100,27 +100,28 @@ Team_Namoo_Front/src/
 **목적:** 관리자 목록·검색·상세를 채우려면 회원 데이터를 내려주는 API 가 필요하다.
 
 **할 일:**
-- [ ] 🔴 `GET /api/admin/members?q=&field=&page=&size=`
+- [x] 🔴 `GET /api/admin/members?q=&field=&page=&size=`
   - `field` = `loginId | nickname | email | supportedParty | signupChannel | status`
     (프론트 검색 분류 드롭다운과 1:1)
   - 각 회원: `id, loginId, nickname, email, emailVerified, supportedParty, signupChannel,
     zipcode, addressBase, addressDetail, joinedAt, lastAccessAt, status, isPlus, agreeMarketing, role`
-  - 최신 가입순, 페이지네이션.
-- [ ] 🔴 `GET /api/admin/members/{id}` — 상세 팝업용 (같은 항목).
+  - 최신 가입순, 페이지네이션. (Spring `Page` 응답 — `content`/`totalElements` 등 표준 필드)
+- [x] 🔴 `GET /api/admin/members/{id}` — 상세 팝업용 (같은 항목).
 
 ## 1-3. 회원 수정 API  🔴 필수
 
 **목적:** 상세 팝업에서 "저장"을 누르면 실제로 반영돼야 한다. 지금은 화면에서만 바뀐다.
 
 **할 일:**
-- [ ] 🔴 `PATCH /api/admin/members/{id}` — 상세 팝업 "저장"
+- [x] 🔴 `PATCH /api/admin/members/{id}` — 상세 팝업 "저장"
   - 바꿀 수 있는 것: `nickname, email, emailVerified, supportedParty, signupChannel,
     zipcode, addressBase, addressDetail, isPlus, agreeMarketing`
   - `loginId / joinedAt / lastAccessAt / role / status` 는 이 API 로 못 바꾼다 (아래 전용 API).
-- [ ] 🔴 `PATCH /api/admin/members/{id}/status`  body `{ status: "SUSPENDED" | "ACTIVE" }`
+- [x] 🔴 `PATCH /api/admin/members/{id}/status`  body `{ status: "SUSPENDED" | "ACTIVE" }`
   - 상세 팝업의 **정지 / 정지 해제** 버튼.
-  - 정지된 회원은 로그인 거부 또는 글쓰기·댓글만 차단 (둘 중 정책 결정).
-- [ ] 🔴 `PATCH /api/admin/members/{id}/role`  body `{ role: "ADMIN" | "USER" }` — **SUPER_ADMIN 만**
+  - 정책 결정: 정지된 회원은 **로그인 자체를 거부**함(`MemberService.login`). 글쓰기·댓글 차단은
+    게시판 도메인(3번) 쪽에서 별도 처리 필요.
+- [x] 🔴 `PATCH /api/admin/members/{id}/role`  body `{ role: "ADMIN" | "USER" }` — **SUPER_ADMIN 만**
   - 상세 팝업 맨 아래 **관리자 임명 / 관리자 해제** 버튼.
   - 대상이 SUPER_ADMIN 이면 거부.
 
@@ -130,11 +131,11 @@ Team_Namoo_Front/src/
 지금은 프론트가 목 배열로 계산한다. 실제 숫자를 내려줘야 한다.
 
 **할 일:**
-- [ ] 🟡 `GET /api/admin/members/stats`
+- [x] 🟡 `GET /api/admin/members/stats`
   - `activeCount` = 상태 ACTIVE 수
   - `inactiveCount`, `inactivePct` = `last_access_at` 이 30일보다 오래된 회원 수 + 비율
   - `plusCount`, `plusPct` = Plus 회원 수 + 비율
-  - `weeklyRevenue` = 이번 주 매출 → **결제 데이터 필요 (아래)**
+  - `weeklyRevenue` = 결제 테이블이 없어 임시로 항상 `0` 반환 (아래 결제 테이블 만들면 이어서)
 - [ ] 🟢 **금주 매출**은 결제/구독 기록 없이는 못 낸다. 최소한 테이블만이라도:
   - `payments(id, member_id, amount, kind, paid_at)` 또는
     `subscriptions(id, member_id, plan, price, started_at, expires_at, status)`
@@ -296,7 +297,7 @@ Team_Namoo_Front/src/
 
 # 5. 이미 알려진 것 / 이월 버그
 
-## 5-1. 이메일 인증이 지금 깨져 있음  🔴 필수
+## 5-1. 이메일 인증이 지금 깨져 있음  🔴 필수 — ✅ 해결됨 (2026-09-05)
 
 **목적:** 회원가입이 이메일 인증을 요구하는데, **인증 코드 검증이 100% 실패해서 아무도 가입 못 한다.**
 
@@ -307,9 +308,11 @@ Team_Namoo_Front/src/
 `isVerified` 를 검사하므로 배포 사이트에서 가입 자체가 막혀 있음.
 
 **할 일:**
-- [ ] 🔴 `EmailVerificationService` 의 `sendCode`, `verifyCode` 에 `@Transactional` 붙이기.
+- [x] 🔴 `EmailVerificationService` 의 `sendCode`, `verifyCode` 에 `@Transactional` 붙이기.
       (`import org.springframework.transaction.annotation.Transactional`)
 - [ ] 🔴 고친 뒤 실제로 코드 발송 → 입력 → 가입까지 한 번 돌려서 확인.
+      (로컬은 SMTP 자격증명 미설정이라 메일 발송 자체는 못 돌려봄 — EC2 배포 후 실제 Gmail
+      SMTP 로 확인 필요. 트랜잭션 버그 자체는 코드 리뷰로 확정.)
 
 ## 5-2. 기타 이월  🟡 중요 / 🟢 나중  `[BACKEND_TODO]`
 

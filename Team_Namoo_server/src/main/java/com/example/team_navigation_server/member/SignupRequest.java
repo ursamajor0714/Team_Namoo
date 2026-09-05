@@ -25,11 +25,29 @@ public class SignupRequest {
     @Size(min = 2, max = 12,message = "2~12자까지 입력 가능합니다.")
     private String nickname;
 
-    public SignupRequest(String loginId, String password, String email, String nickname) {
+    @NotBlank(message = "지지 정당을 선택해주세요.")
+    private String supportedParty;
+
+    private String signupChannel;
+    private String zipcode;
+    private String addressBase;
+    private String addressDetail;
+    private boolean agreeMarketing;
+
+    public SignupRequest(String loginId, String password, String email, String nickname,
+                          String supportedParty, String signupChannel,
+                          String zipcode, String addressBase, String addressDetail,
+                          boolean agreeMarketing) {
         this.loginId = loginId;
         this.password = password;
         this.email = email;
         this.nickname = nickname;
+        this.supportedParty = supportedParty;
+        this.signupChannel = signupChannel;
+        this.zipcode = zipcode;
+        this.addressBase = addressBase;
+        this.addressDetail = addressDetail;
+        this.agreeMarketing = agreeMarketing;
     }
     public String getLoginId() {
         return loginId;
@@ -42,5 +60,23 @@ public class SignupRequest {
     }
     public String getNickname(){
         return nickname;
+    }
+    public String getSupportedParty() {
+        return supportedParty;
+    }
+    public String getSignupChannel() {
+        return signupChannel;
+    }
+    public String getZipcode() {
+        return zipcode;
+    }
+    public String getAddressBase() {
+        return addressBase;
+    }
+    public String getAddressDetail() {
+        return addressDetail;
+    }
+    public boolean isAgreeMarketing() {
+        return agreeMarketing;
     }
 }

@@ -48,4 +48,14 @@ public class EmailVerification {
     public boolean isVerified() {
         return verified;
     }
+
+    public void updateCode(String code, Instant expiresAt) {
+        this.code = code;
+        this.expiresAt = expiresAt;
+        this.verified = false;
+    }
+
+    public void markVerified() {
+        this.verified = true;
+    }
 }

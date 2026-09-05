@@ -38,8 +38,8 @@ function passwordChecklist(password) {
  *   'form'    : 가입 정보 입력 폼
  * 검증 방식: 빈 칸은 브라우저 기본 검증(required) 말풍선이 처리하고, 형식 오류는 submit 시
  *           validate() 가 잡아 해당 필드 바로 아래 메시지를 띄우고 그 칸으로 포커스를 옮긴다.
- * 제출 성공 시: 백엔드가 받는 4필드(loginId/password/email/nickname)만 전송 -> 자동 로그인 -> 홈.
- * 주소/지지정당/가입경로/약관동의는 아직 백엔드에 저장할 곳이 없어 UI로만 수집한다(전송 보류).
+ * 제출 성공 시: loginId/password/email/nickname/supportedParty/signupChannel/
+ *              zipcode/addressBase/addressDetail/agreeMarketing 전송 -> 자동 로그인 -> 홈.
  */
 function SignupPage() {
   const user = useAuthStore((state) => state.user)
@@ -84,6 +84,7 @@ function SignupPage() {
   const nicknameRef = useRef(null)
   const emailRef = useRef(null)
   const partyRef = useRef(null)
+  const addressDetailRef = useRef(null)
 
   /** @param {'terms'|'privacy'|'marketing'} key */
   function toggleAgree(key) {
@@ -155,6 +156,22 @@ function SignupPage() {
     }
   }
 
+  /** "주소 찾기" 버튼: 카카오(다음) 우편번호 팝업을 띄워 우편번호/기본주소를 채운다. */
+  function handleSearchAddress() {
+    if (!window.daum?.Postcode) {
+      window.alert('주소 검색을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
+    new window.daum.Postcode({
+      oncomplete(data) {
+        const roadAddress = data.roadAddress || data.jibunAddress
+        setZipcode(data.zonecode)
+        setAddressBase(roadAddress)
+        addressDetailRef.current?.focus()
+      },
+    }).open()
+  }
+
   /**
    * @returns {{ field: string, ref: React.RefObject<HTMLElement>, message: string } | null}
    *          검증 실패 시 대상 필드/포커스 ref/메시지, 통과 시 null.
@@ -218,8 +235,18 @@ function SignupPage() {
     setSubmitError('')
     setSubmitting(true)
     try {
-      // 백엔드 SignupRequest 는 아직 4필드만 받는다. 나머지는 스펙 확정 후 추가 전송.
-      await signup({ loginId, password, email, nickname })
+      await signup({
+        loginId,
+        password,
+        email,
+        nickname,
+        supportedParty,
+        signupChannel,
+        zipcode,
+        addressBase,
+        addressDetail,
+        agreeMarketing: agree.marketing,
+      })
       await login({ loginId, password })
       navigate('/', { replace: true })
     } catch (err) {
@@ -530,21 +557,25 @@ function SignupPage() {
 
         <div className="signup-box__field">
           <span className="signup-box__label">주소</span>
-          <input
-            type="text"
-            className="signup-box__input"
-            value={zipcode}
-            onChange={(event) => setZipcode(event.target.value)}
-            aria-label="우편번호"
-            placeholder="우편번호"
-            inputMode="numeric"
-            autoComplete="postal-code"
-          />
+          <div className="signup-box__inline">
+            <input
+              type="text"
+              className="signup-box__input"
+              value={zipcode}
+              readOnly
+              aria-label="우편번호"
+              placeholder="우편번호"
+              autoComplete="postal-code"
+            />
+            <button type="button" className="btn btn--ghost" onClick={handleSearchAddress}>
+              주소 찾기
+            </button>
+          </div>
           <input
             type="text"
             className="signup-box__input"
             value={addressBase}
-            onChange={(event) => setAddressBase(event.target.value)}
+            readOnly
             aria-label="기본주소"
             placeholder="기본주소 (도로명 또는 지번)"
             autoComplete="address-line1"
@@ -554,13 +585,11 @@ function SignupPage() {
             className="signup-box__input"
             value={addressDetail}
             onChange={(event) => setAddressDetail(event.target.value)}
+            ref={addressDetailRef}
             aria-label="상세주소"
             placeholder="상세주소 (동/호수 등)"
             autoComplete="address-line2"
           />
-          <span className="signup-box__hint">
-            우편번호 검색은 추후 구현 · 현재는 직접 입력
-          </span>
         </div>
 
         <div className="signup-box__field">

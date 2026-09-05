@@ -3,7 +3,9 @@ import { apiClient } from './client'
 // 백엔드 세션 기반 인증 API (com.example.team_navigation_server.member.MemberController,
 // com.example.team_navigation_server.email.EmailVerificationController)
 //
-//   POST /api/members/signup   { loginId, password, email, nickname } -> 200 "회원가입 성공"
+//   POST /api/members/signup   { loginId, password, email, nickname, supportedParty,
+//                                 signupChannel, zipcode, addressBase, addressDetail,
+//                                 agreeMarketing } -> 200 "회원가입 성공"
 //                              (이메일 인증 선행 필수 - isVerified 아니면 400)
 //   POST /api/members/login    { loginId, password }                  -> 200 "로그인 성공" (+ JSESSIONID 쿠키)
 //   GET  /api/members/me                                              -> 200 { id, loginId, email, nickname } | 401
@@ -15,12 +17,29 @@ import { apiClient } from './client'
 //
 // 실패 시 백엔드는 400 + 한글 메시지 문자열을 그대로 body로 준다(GlobalExceptionHandler).
 
-export async function signup({ loginId, password, email, nickname }) {
+export async function signup({
+  loginId,
+  password,
+  email,
+  nickname,
+  supportedParty,
+  signupChannel,
+  zipcode,
+  addressBase,
+  addressDetail,
+  agreeMarketing,
+}) {
   const response = await apiClient.post('/api/members/signup', {
     loginId,
     password,
     email,
     nickname,
+    supportedParty,
+    signupChannel,
+    zipcode,
+    addressBase,
+    addressDetail,
+    agreeMarketing,
   })
   return response.data
 }

@@ -3,6 +3,7 @@ package com.example.team_navigation_server.email;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -23,12 +24,15 @@ public class EmailVerificationService {
     }
 
     // 인증 코드 발송
+    @Transactional
     public void sendCode(String email) {
         String code = generateCode();
         Instant expiresAt = Instant.now().plus(CODE_EXPIRY_MINUTES, ChronoUnit.MINUTES);
 
-        emailVerificationRepository.deleteByEmail(email);
-        emailVerificationRepository.save(new EmailVerification(email, code, expiresAt, false));
+        emailVerificationRepository.findByEmail(email)
+                .ifPresentOrElse(
+                        verification -> verification.updateCode(code, expiresAt),
+                        () -> emailVerificationRepository.save(new EmailVerification(email, code, expiresAt, false)));
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
@@ -38,6 +42,7 @@ public class EmailVerificationService {
     }
 
     // 인증 코드 확인
+    @Transactional
     public void verifyCode(String email, String code) {
         EmailVerification verification = emailVerificationRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("인증 코드를 먼저 요청해주세요."));
@@ -49,8 +54,7 @@ public class EmailVerificationService {
             throw new IllegalArgumentException("인증 코드가 일치하지 않습니다.");
         }
 
-        emailVerificationRepository.deleteByEmail(email);
-        emailVerificationRepository.save(new EmailVerification(email, code, verification.getExpiresAt(), true));
+        verification.markVerified();
     }
 
     // 회원가입 시 이메일 인증 완료 여부 확인
