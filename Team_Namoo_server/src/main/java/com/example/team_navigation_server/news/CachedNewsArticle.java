@@ -61,6 +61,10 @@ public class CachedNewsArticle {
     @Column(nullable = false)
     private Instant collectedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ArticleVisibility visibility = ArticleVisibility.NORMAL;
+
     protected CachedNewsArticle() {
     }
 
@@ -126,5 +130,13 @@ public class CachedNewsArticle {
 
     public Instant getCollectedAt() {
         return collectedAt;
+    }
+
+    public ArticleVisibility getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(ArticleVisibility visibility) {
+        this.visibility = visibility;
     }
 }

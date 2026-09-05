@@ -9,7 +9,10 @@ public interface CachedNewsArticleRepository extends JpaRepository<CachedNewsArt
 
     boolean existsByOriginalLink(String originalLink);
 
-    List<CachedNewsArticle> findByCollectedAtAfterOrderByCollectedAtDesc(Instant cutoff);
+    List<CachedNewsArticle> findByCollectedAtAfterAndVisibilityOrderByCollectedAtDesc(
+            Instant cutoff, ArticleVisibility visibility);
+
+    List<CachedNewsArticle> findAllByOrderByCollectedAtDesc();
 
     long deleteByCollectedAtBefore(Instant cutoff);
 }

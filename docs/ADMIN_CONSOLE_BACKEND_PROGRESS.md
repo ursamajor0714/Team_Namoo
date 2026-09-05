@@ -35,8 +35,25 @@
 - 원인: `deleteByEmail()`을 트랜잭션 밖에서 호출 → `TransactionRequiredException` → 재발송/코드확인 500, 가입 자체가 막혀 있었음
 - **미검증**: 로컬은 Gmail SMTP 자격증명 미설정이라 실제 메일 발송까지는 못 돌려봄. EC2 배포 후 실제 코드 발송→가입 흐름 한 번 확인 필요.
 
+## 2. 기사관리 (visibility) — 완료 (2026-09-05)
+- `CachedNewsArticle` 에 `visibility` ENUM(`NORMAL`/`HIDDEN`/`DELETED`) 컬럼 추가, 기본 `NORMAL`
+- 회원용 `GET /api/news`, `GET /api/news/by-leaning` 는 `NewsCacheService.recentPool()` 이
+  `visibility = NORMAL` 인 것만 반환하도록 수정 (`CachedNewsArticleRepository`에 조건 추가된
+  파생 쿼리 사용)
+- `GET /api/admin/articles?party=&scope=title|content&q=` — party는 프론트와 동일한
+  정당→성향 매핑(`AdminArticleService.PARTY_LEANING`)으로 필터, 없는 정당이면 400.
+  scope=title|content + q 로 텍스트 검색. 관리자는 HIDDEN/DELETED 도 다 보임(필터링 없음)
+- `PATCH /api/admin/articles/{id}/visibility`, 일괄 `PATCH /api/admin/articles/visibility`
+  body `{ ids:[...], visibility }` — 같은 기사가 여러 정당 탭에 걸쳐 있어도 id 하나만 바꾸면
+  전부 반영됨 (기사 자체가 정당별로 중복 저장되지 않으므로 자동으로 해결됨)
+- 로컬 H2(docker 프로필)로 기동 후 curl 로 전부 확인: 비로그인 401, HIDDEN 처리 시
+  `/api/news` 에서 빠지고 관리자 목록엔 계속 보임, 잘못된 정당명 400, 일괄 NORMAL 복구 후
+  회원용에 재노출 — 전부 정상. 서버는 확인 후 종료해둠.
+- **보류(🟢 나중, 팀 결정 필요)**: `leaning` 수동 교정 허용 + `leaning_overridden` 플래그
+  (자동 재분류가 관리자 교정값을 덮어쓰지 않게), `NewsCacheService.pruneOld()` 가 감춤/삭제
+  처리된 기사도 3일 후 같이 지울지 남길지 정책 결정 — 둘 다 아직 안 함
+
 ## 아직 안 한 것
-- 2번 기사관리 (visibility)
 - 3번 게시글 관리 (관리자 API — 회원용 게시판 API 자체는 이미 존재)
 - 4번 광고관리 + S3 업로드
 
@@ -54,6 +71,12 @@
   admin/AdminMemberStatusRequest.java
   admin/AdminMemberRoleRequest.java
   admin/AdminForbiddenException.java
+  news/ArticleVisibility.java
+  admin/AdminArticleController.java
+  admin/AdminArticleService.java
+  admin/AdminArticleResponse.java
+  admin/AdminArticleVisibilityRequest.java
+  admin/AdminArticleBulkVisibilityRequest.java
 
 수정:
   member/Member.java
@@ -61,7 +84,9 @@
   member/MemberResponse.java
   member/MemberService.java
   member/GlobalExceptionHandler.java
+  member/SignupRequest.java (supportedParty/signupChannel/zipcode/addressBase/addressDetail/agreeMarketing 추가)
   config/LocalAdminInitializer.java
-  email/EmailVerificationService.java
+  email/EmailVerification.java, EmailVerificationRepository.java, EmailVerificationService.java
+  news/CachedNewsArticle.java, CachedNewsArticleRepository.java, NewsCacheService.java
 ```
 (전부 `Team_Namoo_server/src/main/java/com/example/team_navigation_server/` 하위)

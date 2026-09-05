@@ -158,8 +158,8 @@ Team_Namoo_Front/src/
 노출 상태 개념이 없음.
 
 **할 일:**
-- [ ] 🟡 `CachedNewsArticle` 에 `visibility` ENUM(`NORMAL` / `HIDDEN` / `DELETED`) 추가, 기본 `NORMAL`.
-- [ ] 🟡 회원용 API (`GET /api/news`, `GET /api/news/by-leaning`) 는 `visibility = NORMAL` 만 반환.
+- [x] 🟡 `CachedNewsArticle` 에 `visibility` ENUM(`NORMAL` / `HIDDEN` / `DELETED`) 추가, 기본 `NORMAL`.
+- [x] 🟡 회원용 API (`GET /api/news`, `GET /api/news/by-leaning`) 는 `visibility = NORMAL` 만 반환.
 - [ ] 🟢 `leaning` 수동 교정 허용 + `leaning_overridden` 플래그 —
       자동 재분류가 관리자가 고친 값을 덮어쓰지 않도록.
 - [ ] 🟢 3일 지난 기사를 지우는 `NewsCacheService.pruneOld()` 가 삭제·감춤 처리된 것도
@@ -168,13 +168,13 @@ Team_Namoo_Front/src/
 ## 2-2. 기사관리 API  🟡 중요
 
 **할 일:**
-- [ ] 🟡 `GET /api/admin/articles?party=&scope=title|content&q=`
+- [x] 🟡 `GET /api/admin/articles?party=&scope=title|content&q=`
   - `party` 별로 조회 (프론트 카테고리 버튼). 서버는 정당→성향 매핑으로 필터
     (`Team_Namoo_Front/src/constants/parties.js` 의 `PARTY_LEANING` 과 동일:
      민주·혁신·진보당→진보 / 국힘·개혁신당→보수).
   - 각 기사에 `id`, `visibility`, `title`, `link`, `originalLink`, `leaning`.
   - 관리자는 감춤·삭제된 것도 다 보이고, 프론트가 제목 앞에 `(정상)/(삭제)/(감춤)` 을 붙인다.
-- [ ] 🟡 `PATCH /api/admin/articles/{id}/visibility`  body `{ visibility: "DELETED"|"HIDDEN"|"NORMAL" }`
+- [x] 🟡 `PATCH /api/admin/articles/{id}/visibility`  body `{ visibility: "DELETED"|"HIDDEN"|"NORMAL" }`
   - **삭제 / 감추기 / 복구** 버튼.
   - **중복 기사 연동 문제 자동 해결**: 같은 기사가 여러 정당 목록에 나와도 서버에선 기사 1건(id 1개)
     이므로, id 로 상태를 바꾸면 모든 정당 목록에 한 번에 반영된다.

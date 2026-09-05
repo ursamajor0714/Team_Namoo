@@ -136,9 +136,10 @@ public class NewsCacheService {
         return matched.stream().map(NewsCacheService::toNewsArticle).toList();
     }
 
+    /** 회원용 - 노출 상태가 NORMAL인 기사만 (관리자가 감추거나 삭제 표시한 건 제외). */
     private List<CachedNewsArticle> recentPool() {
         Instant cutoff = Instant.now().minus(WINDOW_DAYS, ChronoUnit.DAYS);
-        return repository.findByCollectedAtAfterOrderByCollectedAtDesc(cutoff);
+        return repository.findByCollectedAtAfterAndVisibilityOrderByCollectedAtDesc(cutoff, ArticleVisibility.NORMAL);
     }
 
     private static NewsArticle toNewsArticle(CachedNewsArticle a) {
