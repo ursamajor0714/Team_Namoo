@@ -3,7 +3,7 @@ package com.example.team_navigation_server.board;
 import com.example.team_navigation_server.member.Member;
 import jakarta.persistence.*;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "comments")
@@ -18,23 +18,36 @@ public class Comment {
     private Post post;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id", nullable = false)
-    private Member author;
+    @JoinColumn(name = "author_member_id")
+    private Member authorMember;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false)
+    private String authorName;
+
+    @Lob
+    @Column(nullable = false)
     private String content;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PostVisibility visibility = PostVisibility.NORMAL;
+
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     protected Comment() {
     }
 
-    public Comment(Post post, Member author, String content) {
+    public Comment(Post post, Member authorMember, String authorName, String content) {
         this.post = post;
-        this.author = author;
+        this.authorMember = authorMember;
+        this.authorName = authorName;
         this.content = content;
-        this.createdAt = LocalDateTime.now();
+    }
+
+    @PrePersist
+    void onCreate() {
+        this.createdAt = Instant.now();
     }
 
     public Long getId() {
@@ -45,15 +58,23 @@ public class Comment {
         return post;
     }
 
-    public Member getAuthor() {
-        return author;
+    public Member getAuthorMember() {
+        return authorMember;
+    }
+
+    public String getAuthorName() {
+        return authorName;
     }
 
     public String getContent() {
         return content;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public PostVisibility getVisibility() {
+        return visibility;
+    }
+
+    public Instant getCreatedAt() {
         return createdAt;
     }
 }

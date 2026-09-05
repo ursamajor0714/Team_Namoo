@@ -7,6 +7,8 @@
  ※ 2026-09-03 기준 일부 항목 완료됨: 이메일 인증, 뉴스 3일 캐싱, 회원가입 검증,
    parties 시드, 중복확인 API. 관리자 콘솔 관련 최신 백엔드 할 일은
    docs/ADMIN_CONSOLE_BACKEND_TODO.md 를 볼 것.
+ ※ 2026-09-05 완료: 5~8번 게시판 도메인 전체(게시판/게시글/댓글, 목록·작성·상세·댓글 API).
+   상세는 docs/ADMIN_CONSOLE_BACKEND_PROGRESS.md 참고.
  기준일: 2026-09-01
  상태: 진행 중 - BACKEND_TODO.txt(8/31) + BACKEND_TODO2.txt(9/1)를 하나로 통합,
        전체 항목을 중요도(P0 최우선 / P1 / P2) 기준으로 재정렬함. 이 파일 하나만 보면 됨.

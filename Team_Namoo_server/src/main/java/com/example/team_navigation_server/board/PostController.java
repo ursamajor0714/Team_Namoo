@@ -2,14 +2,13 @@ package com.example.team_navigation_server.board;
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
-@RequestMapping("/api")
 public class PostController {
 
     private final PostService postService;
@@ -18,57 +17,40 @@ public class PostController {
         this.postService = postService;
     }
 
-    @PostMapping("/parties/{partyName}/boards/{boardId}/posts")
-    public ResponseEntity<?> createPost(@PathVariable String partyName,
-                                         @PathVariable int boardId,
-                                         @Valid @RequestBody PostCreateRequest request,
-                                         HttpSession session) {
-        Long memberId = requireLogin(session);
-        if (memberId == null) {
-            return unauthorized();
-        }
-        Long postId = postService.createPost(partyName, boardId, memberId, request);
-        return ResponseEntity.ok(Map.of("id", postId));
+    @GetMapping("/api/parties/{partyName}/boards/{boardId}/posts")
+    public ResponseEntity<PostListResponse> list(@PathVariable String partyName,
+                                                  @PathVariable int boardId,
+                                                  @RequestParam(defaultValue = "0") int page,
+                                                  @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(postService.list(partyName, boardId, page, size));
     }
 
-    @GetMapping("/parties/{partyName}/boards/{boardId}/posts")
-    public ResponseEntity<List<PostResponse>> getPosts(@PathVariable String partyName,
-                                                         @PathVariable int boardId) {
-        return ResponseEntity.ok(postService.getPosts(partyName, boardId));
+    @PostMapping("/api/parties/{partyName}/boards/{boardId}/posts")
+    public ResponseEntity<PostDetailResponse> create(@PathVariable String partyName,
+                                                      @PathVariable int boardId,
+                                                      @Valid @RequestBody PostCreateRequest request,
+                                                      HttpSession session) {
+        Long memberId = (Long) session.getAttribute("loginMemberId");
+        PostDetailResponse response = postService.create(partyName, boardId, memberId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping("/posts/{postId}")
-    public ResponseEntity<PostResponse> getPost(@PathVariable Long postId) {
-        return ResponseEntity.ok(postService.getPost(postId));
+    @GetMapping("/api/posts/{postId}")
+    public ResponseEntity<PostDetailResponse> getDetail(@PathVariable Long postId) {
+        return ResponseEntity.ok(postService.getDetail(postId));
     }
 
-    @PutMapping("/posts/{postId}")
-    public ResponseEntity<?> updatePost(@PathVariable Long postId,
-                                         @Valid @RequestBody PostCreateRequest request,
-                                         HttpSession session) {
-        Long memberId = requireLogin(session);
-        if (memberId == null) {
-            return unauthorized();
-        }
-        postService.updatePost(postId, memberId, request);
-        return ResponseEntity.ok("수정 완료");
+    @GetMapping("/api/posts/{postId}/comments")
+    public ResponseEntity<List<CommentResponse>> getComments(@PathVariable Long postId) {
+        return ResponseEntity.ok(postService.getComments(postId));
     }
 
-    @DeleteMapping("/posts/{postId}")
-    public ResponseEntity<?> deletePost(@PathVariable Long postId, HttpSession session) {
-        Long memberId = requireLogin(session);
-        if (memberId == null) {
-            return unauthorized();
-        }
-        postService.deletePost(postId, memberId);
-        return ResponseEntity.ok("삭제 완료");
-    }
-
-    private Long requireLogin(HttpSession session) {
-        return (Long) session.getAttribute("loginMemberId");
-    }
-
-    private ResponseEntity<?> unauthorized() {
-        return ResponseEntity.status(401).body("로그인이 필요합니다.");
+    @PostMapping("/api/posts/{postId}/comments")
+    public ResponseEntity<CommentResponse> createComment(@PathVariable Long postId,
+                                                          @Valid @RequestBody CommentCreateRequest request,
+                                                          HttpSession session) {
+        Long memberId = (Long) session.getAttribute("loginMemberId");
+        CommentResponse response = postService.createComment(postId, memberId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

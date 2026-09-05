@@ -53,9 +53,37 @@
   (자동 재분류가 관리자 교정값을 덮어쓰지 않게), `NewsCacheService.pruneOld()` 가 감춤/삭제
   처리된 기사도 3일 후 같이 지울지 남길지 정책 결정 — 둘 다 아직 안 함
 
+## 3. 게시판 도메인 전체 (`[BACKEND_TODO 5·6·7·8번]`) — 완료 (2026-09-05)
+- **구조 결정**: 정당별 완전 분리로 결정 — `boards(id, party_id FK, board_index 1~5, name,
+  login_required, allow_anonymous)`, 정당 5 × 게시판 5 = 25행. `BoardSeeder`(CommandLineRunner,
+  프로필 무관)가 기동 시 없는 것만 채움(existsBy 가드, parties.name 중복시드 버그 안 따라감).
+  게시판 이름은 doc대로 "게시판1~5" 임시 — 프론트 팀 확정 대기.
+- `posts`/`comments` 테이블 — doc 스펙 그대로 + **`posts.pinned`(공지) 컬럼 추가**
+  (doc 6번의 응답 계약 `{ notices, posts, totalCount }`를 구현하려면 공지 여부를 구분할
+  컬럼이 필요한데 스펙엔 없어서 최소 추가함). **주의**: 공지를 지정/해제하는 API는 아직 없음
+  (프론트 계획 문서에도 "미구현" 스텁으로만 있어 백엔드 TODO에 아직 항목화 안 됨) — 그래서
+  `notices` 배열은 항상 빈 배열로 나감. 필요해지면 `PATCH /api/admin/posts/{id}/pinned` 같은
+  걸 추가하면 됨.
+- 회원용: `GET/POST /api/parties/{party}/boards/{boardId}/posts`,
+  `GET /api/posts/{id}` (조회수 +1), `GET/POST /api/posts/{id}/comments`.
+  비로그인 글쓰기/댓글은 `익명`으로 허용(현재 모든 게시판 `allow_anonymous=true`), 로그인
+  회원은 닉네임이 작성자로 저장됨(`author_member_id`도 같이 저장 — 3-3 글쓴이 정지 대상 확보).
+- 관리자: `GET /api/admin/parties/{party}/boards/{boardId}/posts`,
+  `PATCH /api/admin/posts/{id}/visibility`, 일괄 `PATCH /api/admin/posts/visibility`.
+  글쓴이 정지는 새 API 안 만들고 기존 `PATCH /api/admin/members/{id}/status` 재사용(3-3).
+- `num`(글 번호)은 저장 컬럼이 아니라 조회 시 `총건수 - offset - 페이지내 순번`으로 계산.
+- **로컬 H2(docker 프로필)로 실제 기동해서 curl로 전부 확인**: 25개 게시판 전부 200,
+  익명/로그인 글쓰기 각각 정상(작성자 이름 다르게 저장), 조회수 누적, 댓글 작성/조회,
+  관리자 DELETED 처리 → 회원 목록/상세에서 빠지고 상세는 400, 관리자 목록엔 계속 보임,
+  일괄 NORMAL 복구 → 재노출, 없는 정당/게시판 400, 비로그인 관리자 API 401 — 전부 정상.
+- **주의**: 작업 시작 시 `board/` 패키지에 2026-09-03자 커밋 안 된 미완성 초안 3개
+  (`CommentController.java`, `CommentService.java`, `PostResponse.java`)가 남아있었음 —
+  익명 글쓰기·visibility 등을 지원 안 하는 예전 설계라 지금 스펙과 충돌해서 삭제하고 새로 만듦
+  (다른 코드에서 참조 없는 것 확인 후 삭제).
+
 ## 아직 안 한 것
-- 3번 게시글 관리 (관리자 API — 회원용 게시판 API 자체는 이미 존재)
 - 4번 광고관리 + S3 업로드
+- 공지(pinned) 지정/해제 API — 위 3번 참고, 필요해지면 추가
 
 ## 변경/신규 파일
 ```
@@ -77,6 +105,13 @@
   admin/AdminArticleResponse.java
   admin/AdminArticleVisibilityRequest.java
   admin/AdminArticleBulkVisibilityRequest.java
+  board/Board.java, BoardRepository.java, BoardSeeder.java
+  board/Post.java, PostRepository.java, PostVisibility.java
+  board/PostService.java, PostController.java
+  board/PostCreateRequest.java, PostSummaryResponse.java, PostListResponse.java, PostDetailResponse.java
+  board/Comment.java, CommentRepository.java, CommentCreateRequest.java, CommentResponse.java
+  admin/AdminPostResponse.java, AdminPostService.java, AdminPostController.java
+  admin/AdminPostVisibilityRequest.java, AdminPostBulkVisibilityRequest.java
 
 수정:
   member/Member.java

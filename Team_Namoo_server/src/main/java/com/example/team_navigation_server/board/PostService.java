@@ -2,81 +2,124 @@ package com.example.team_navigation_server.board;
 
 import com.example.team_navigation_server.member.Member;
 import com.example.team_navigation_server.member.MemberRepository;
-import com.example.team_navigation_server.member.Party;
-import com.example.team_navigation_server.member.PartyRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
-@Transactional
 public class PostService {
 
+    private final BoardRepository boardRepository;
     private final PostRepository postRepository;
-    private final PartyRepository partyRepository;
-    private final MemberRepository memberRepository;
     private final CommentRepository commentRepository;
+    private final MemberRepository memberRepository;
 
-    public PostService(PostRepository postRepository, PartyRepository partyRepository,
-                        MemberRepository memberRepository, CommentRepository commentRepository) {
+    public PostService(BoardRepository boardRepository, PostRepository postRepository,
+                        CommentRepository commentRepository, MemberRepository memberRepository) {
+        this.boardRepository = boardRepository;
         this.postRepository = postRepository;
-        this.partyRepository = partyRepository;
-        this.memberRepository = memberRepository;
         this.commentRepository = commentRepository;
+        this.memberRepository = memberRepository;
     }
 
-    // 게시글 작성
-    public Long createPost(String partyName, int boardId, Long memberId, PostCreateRequest request) {
-        Party party = partyRepository.findByName(partyName)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 정당입니다."));
-        Member author = memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+    public PostListResponse list(String partyName, int boardIndex, int page, int size) {
+        Board board = findBoard(partyName, boardIndex);
 
-        Post post = new Post(party, boardId, request.getTitle(), request.getContent(), author);
-        postRepository.save(post);
-        return post.getId();
-    }
-
-    // 게시판 목록 조회
-    @Transactional(readOnly = true)
-    public List<PostResponse> getPosts(String partyName, int boardId) {
-        Party party = partyRepository.findByName(partyName)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 정당입니다."));
-
-        return postRepository.findByParty_IdAndBoardIdOrderByCreatedAtDesc(party.getId(), boardId)
+        List<PostSummaryResponse> notices = postRepository
+                .findByBoardAndPinnedTrueAndVisibilityOrderByIdDesc(board, PostVisibility.NORMAL)
                 .stream()
-                .map(post -> new PostResponse(post, commentRepository.countByPost_Id(post.getId())))
+                .map(post -> new PostSummaryResponse(post, null, commentCount(post)))
+                .toList();
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        Page<Post> pageResult = postRepository.findByBoardAndPinnedFalseAndVisibility(board, PostVisibility.NORMAL, pageable);
+        long totalCount = postRepository.countByBoardAndPinnedFalseAndVisibility(board, PostVisibility.NORMAL);
+
+        long offset = (long) page * size;
+        List<Post> content = pageResult.getContent();
+        List<PostSummaryResponse> posts = new ArrayList<>(content.size());
+        for (int i = 0; i < content.size(); i++) {
+            Post post = content.get(i);
+            int num = (int) (totalCount - offset - i);
+            posts.add(new PostSummaryResponse(post, num, commentCount(post)));
+        }
+
+        return new PostListResponse(notices, posts, totalCount);
+    }
+
+    @Transactional
+    public PostDetailResponse create(String partyName, int boardIndex, Long memberId, PostCreateRequest request) {
+        Board board = findBoard(partyName, boardIndex);
+        Member member = resolveWriter(board, memberId);
+        String authorName = member != null ? member.getNickname() : "익명";
+
+        Post post = new Post(board, member, authorName, request.getTitle(), request.getContent());
+        postRepository.save(post);
+        return new PostDetailResponse(post, 0);
+    }
+
+    @Transactional
+    public PostDetailResponse getDetail(Long postId) {
+        Post post = findVisiblePost(postId);
+        post.increaseViews();
+        long commentCount = commentCount(post);
+        return new PostDetailResponse(post, commentCount);
+    }
+
+    public List<CommentResponse> getComments(Long postId) {
+        Post post = findVisiblePost(postId);
+        return commentRepository.findByPostAndVisibilityOrderByIdAsc(post, PostVisibility.NORMAL)
+                .stream()
+                .map(CommentResponse::new)
                 .toList();
     }
 
-    // 게시글 상세 조회 (조회수 +1)
-    public PostResponse getPost(Long postId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
-        post.increaseViewCount();
-        return new PostResponse(post, commentRepository.countByPost_Id(postId));
+    @Transactional
+    public CommentResponse createComment(Long postId, Long memberId, CommentCreateRequest request) {
+        Post post = findVisiblePost(postId);
+        Member member = resolveWriter(post.getBoard(), memberId);
+        String authorName = member != null ? member.getNickname() : "익명";
+
+        Comment comment = new Comment(post, member, authorName, request.getContent());
+        commentRepository.save(comment);
+        return new CommentResponse(comment);
     }
 
-    // 게시글 수정 (작성자 본인만)
-    public void updatePost(Long postId, Long memberId, PostCreateRequest request) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
-        validateAuthor(post, memberId);
-        post.update(request.getTitle(), request.getContent());
-    }
-
-    // 게시글 삭제 (작성자 본인만)
-    public void deletePost(Long postId, Long memberId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
-        validateAuthor(post, memberId);
-        postRepository.delete(post);
-    }
-
-    private void validateAuthor(Post post, Long memberId) {
-        if (!post.getAuthor().getId().equals(memberId)) {
-            throw new IllegalArgumentException("작성자만 수정/삭제할 수 있습니다.");
+    private Member resolveWriter(Board board, Long memberId) {
+        if (memberId == null) {
+            if (board.isLoginRequired()) {
+                throw new IllegalArgumentException("로그인이 필요한 게시판입니다.");
+            }
+            if (!board.isAllowAnonymous()) {
+                throw new IllegalArgumentException("비로그인 글쓰기가 허용되지 않는 게시판입니다.");
+            }
+            return null;
         }
+        return memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+    }
+
+    private Board findBoard(String partyName, int boardIndex) {
+        return boardRepository.findByParty_NameAndBoardIndex(partyName, boardIndex)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시판입니다."));
+    }
+
+    private Post findVisiblePost(Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
+        if (post.getVisibility() != PostVisibility.NORMAL) {
+            throw new IllegalArgumentException("존재하지 않는 게시글입니다.");
+        }
+        return post;
+    }
+
+    private long commentCount(Post post) {
+        return commentRepository.countByPostAndVisibility(post, PostVisibility.NORMAL);
     }
 }

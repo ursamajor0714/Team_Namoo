@@ -1,10 +1,9 @@
 package com.example.team_navigation_server.board;
 
 import com.example.team_navigation_server.member.Member;
-import com.example.team_navigation_server.member.Party;
 import jakarta.persistence.*;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "posts")
@@ -15,56 +14,78 @@ public class Post {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "party_id", nullable = false)
-    private Party party;
+    @JoinColumn(name = "board_id", nullable = false)
+    private Board board;
 
-    // 정당 안에서 게시판 종류를 구분 (프론트 사이드바 기준 1~5, 아직 별도 Board 엔티티는 없음)
-    @Column(nullable = false)
-    private int boardId;
+    // 비로그인(익명) 작성 글은 null - 3-3 글쓴이 정지는 이 값이 있어야 대상이 된다.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "author_member_id")
+    private Member authorMember;
 
     @Column(nullable = false)
+    private String authorName;
+
+    @Column(nullable = false, length = 100)
     private String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Lob
+    @Column(nullable = false)
     private String content;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id", nullable = false)
-    private Member author;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PostVisibility visibility = PostVisibility.NORMAL;
+
+    @Column(nullable = false)
+    private boolean pinned = false;
+
+    @Column(nullable = false)
+    private int views = 0;
+
+    @Column(nullable = false)
+    private int likes = 0;
+
+    @Column(nullable = false)
+    private int dislikes = 0;
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(nullable = false)
-    private int viewCount;
-
-    @Column(nullable = false)
-    private int likeCount;
+    private Instant updatedAt;
 
     protected Post() {
     }
 
-    public Post(Party party, int boardId, String title, String content, Member author) {
-        this.party = party;
-        this.boardId = boardId;
+    public Post(Board board, Member authorMember, String authorName, String title, String content) {
+        this.board = board;
+        this.authorMember = authorMember;
+        this.authorName = authorName;
         this.title = title;
         this.content = content;
-        this.author = author;
-        this.createdAt = LocalDateTime.now();
-        this.viewCount = 0;
-        this.likeCount = 0;
+    }
+
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
     }
 
     public Long getId() {
         return id;
     }
 
-    public Party getParty() {
-        return party;
+    public Board getBoard() {
+        return board;
     }
 
-    public int getBoardId() {
-        return boardId;
+    public Member getAuthorMember() {
+        return authorMember;
+    }
+
+    public String getAuthorName() {
+        return authorName;
     }
 
     public String getTitle() {
@@ -75,32 +96,39 @@ public class Post {
         return content;
     }
 
-    public Member getAuthor() {
-        return author;
+    public PostVisibility getVisibility() {
+        return visibility;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public void setVisibility(PostVisibility visibility) {
+        this.visibility = visibility;
+    }
+
+    public boolean isPinned() {
+        return pinned;
+    }
+
+    public int getViews() {
+        return views;
+    }
+
+    public void increaseViews() {
+        this.views += 1;
+    }
+
+    public int getLikes() {
+        return likes;
+    }
+
+    public int getDislikes() {
+        return dislikes;
+    }
+
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public int getViewCount() {
-        return viewCount;
-    }
-
-    public int getLikeCount() {
-        return likeCount;
-    }
-
-    public void update(String title, String content) {
-        this.title = title;
-        this.content = content;
-    }
-
-    public void increaseViewCount() {
-        this.viewCount++;
-    }
-
-    public void increaseLikeCount() {
-        this.likeCount++;
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 }

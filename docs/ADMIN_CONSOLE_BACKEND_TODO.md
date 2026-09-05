@@ -193,32 +193,32 @@ Team_Namoo_Front/src/
 **목적:** 게시글 관리는 물론이고, 서비스의 커뮤니티 기능 자체가 이거 없이는 전부 가짜다.
 
 **할 일:**
-- [ ] 🔴 `boards(id, party_id, board_index 1~5, name, login_required BOOLEAN, allow_anonymous BOOLEAN)`
+- [x] 🔴 `boards(id, party_id, board_index 1~5, name, login_required BOOLEAN, allow_anonymous BOOLEAN)`
   - 정당 5 × 게시판 5 = 25행. 게시판 이름은 아직 "게시판1~5" 임시 — 프론트 팀과 확정 필요.
-- [ ] 🔴 `posts(id, board_id, author_member_id NULL, author_name, title, content,
+- [x] 🔴 `posts(id, board_id, author_member_id NULL, author_name, title, content,
       visibility ENUM(NORMAL/HIDDEN/DELETED) 기본 NORMAL, views, likes, dislikes, created_at, updated_at)`
-- [ ] 🔴 `comments(id, post_id, author_member_id NULL, author_name, content, visibility, created_at)`
-- [ ] 🔴 회원용 목록/작성/상세/댓글 API — `[BACKEND_TODO 6·7·8번]` 참고.
+- [x] 🔴 `comments(id, post_id, author_member_id NULL, author_name, content, visibility, created_at)`
+- [x] 🔴 회원용 목록/작성/상세/댓글 API — `[BACKEND_TODO 6·7·8번]` 참고.
 
 ## 3-2. 게시글 관리 API  🟡 중요
 
 **할 일:**
-- [ ] 🟡 `GET /api/admin/parties/{party}/boards/{boardId}/posts?page=&size=`
+- [x] 🟡 `GET /api/admin/parties/{party}/boards/{boardId}/posts?page=&size=`
   - 프론트 트리에서 정당 → 게시판 선택 시 호출.
   - 각 글: `id, num, title, author, date, visibility` (+ views/likes).
   - 관리자는 감춤·삭제 글도 다 보임.
-- [ ] 🟡 `PATCH /api/admin/posts/{id}/visibility`  body `{ visibility: "DELETED"|"HIDDEN"|"NORMAL" }`
+- [x] 🟡 `PATCH /api/admin/posts/{id}/visibility`  body `{ visibility: "DELETED"|"HIDDEN"|"NORMAL" }`
   - **삭제 / 감추기 / 복구** 버튼. "삭제해도 실제로 안 지워지고 회원 화면에서만 비공개" — 화면 문구 그대로.
   - 일괄: `PATCH /api/admin/posts/visibility` body `{ ids:[...], visibility }`.
-- [ ] 🟡 회원용 게시글 조회는 `visibility = NORMAL` 만.
+- [x] 🟡 회원용 게시글 조회는 `visibility = NORMAL` 만.
 
 ## 3-3. 글쓴이 정지  🟡 중요
 
 **목적:** 게시판 글 목록에서 글쓴이 이름을 누르면 뜨는 팝업에서 그 사람을 정지/해제할 수 있어야 한다.
 
 **할 일:**
-- [ ] 🟡 `posts.author_member_id` 가 실제 회원과 연결돼야 함 (지금 더미는 이름 문자열만 있음).
-- [ ] 🟡 글쓴이 팝업의 **정지 / 정지 해제** = 1-3 의 `PATCH /api/admin/members/{id}/status` 를 그대로 재사용.
+- [x] 🟡 `posts.author_member_id` 가 실제 회원과 연결돼야 함 (지금 더미는 이름 문자열만 있음).
+- [x] 🟡 글쓴이 팝업의 **정지 / 정지 해제** = 1-3 의 `PATCH /api/admin/members/{id}/status` 를 그대로 재사용 (별도 API 불필요, 기존 것 그대로 씀).
 - [ ] 🟢 비로그인 작성 글(`author_member_id` 없음)은 정지 대상이 없음 — IP 차단 등은 별도 정책.
 
 ---
