@@ -41,6 +41,9 @@ dependencies {
     implementation 'org.jsoup:jsoup:1.17.2'
     // Mozilla Readability 알고리즘의 Kotlin/Java 포트 - 언론사별 셀렉터 없이 본문 영역을 자동 판별
     implementation 'net.dankito.readability4j:readability4j:1.0.8'
+    // 광고 이미지 업로드용 S3 presigned URL 발급 (ADMIN_CONSOLE_BACKEND_TODO 4-3)
+    implementation platform('software.amazon.awssdk:bom:2.29.52')
+    implementation 'software.amazon.awssdk:s3'
 }
 
 tasks.named('test') {

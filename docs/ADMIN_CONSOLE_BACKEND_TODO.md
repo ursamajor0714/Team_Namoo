@@ -234,7 +234,7 @@ Team_Namoo_Front/src/
 **목적:** 관리자가 등록한 광고가 실제로 모든 방문자에게, 예약한 날짜·시간에 맞춰 보여야 한다.
 
 **할 일:**
-- [ ] 🟡 `ads` 테이블
+- [x] 🟡 `ads` 테이블 (기본 컬럼만 — 선택 항목인 advertiser/weight/daily_impression_cap/impressions/clicks 는 안 만듦, 필요해지면 추가)
   ```
   id, page (VARCHAR: 'main' 또는 정당명),  side (ENUM LEFT/RIGHT),
   image_url (S3 URL, NULL 이면 기본이미지),  link_url (NULL 가능),
@@ -245,17 +245,18 @@ Team_Namoo_Front/src/
 ## 4-2. 광고 조회 / 등록 API  🟡 중요
 
 **할 일:**
-- [ ] 🟡 `GET /api/ads?page=&side=` — **공개 API**.
+- [x] 🟡 `GET /api/ads?page=&side=` — **공개 API**.
   - 지금 시각이 `start_at ~ end_at` 안에 드는 광고 중, `start_at` 이 가장 이른 것 1건.
-  - 없으면 빈 응답 → 프론트가 기본 이미지 표시.
-  - **프론트 `store/adStore.js` 의 `pickActiveAd()` 로직을 그대로 서버로 옮기면 된다.**
+  - 없으면 빈 응답 → 프론트가 기본 이미지 표시. (204 No Content 로 구현)
+  - start_at/end_at 이 둘 다 NULL 이면 "기간 미설정" = 상시 노출로 처리(둘 중 하나만 NULL 이어도
+    그쪽은 제한 없음으로 취급) — doc엔 이 케이스가 명시 안 돼 있어 판단해서 넣음.
   - **스케줄러 불필요**: "조회하는 순간의 시각으로 거른다" 만 하면
     예약한 다음 광고가 시간 되면 자동으로 뜨는 동작이 그냥 된다.
-- [ ] 🟡 `GET /api/admin/ads?page=` — 관리자용 목록(= 화면의 "추가 이력").
+- [x] 🟡 `GET /api/admin/ads?page=` — 관리자용 목록(= 화면의 "추가 이력").
   - `created_at` 최신순. 각 항목에 상태(`노출 중`/`예약`/`종료`/`기간 미설정`) 계산해서 같이.
-- [ ] 🟡 `POST /api/admin/ads` body `{ page, side, imageUrl, linkUrl, startAt, endAt }` — "추가" 버튼.
-- [ ] 🟡 `DELETE /api/admin/ads/{id}` — 이력의 "삭제" 버튼.
-- [ ] 🟢 `POST /api/ads/{id}/impression`, `POST /api/ads/{id}/click` — 노출·클릭 수 집계.
+- [x] 🟡 `POST /api/admin/ads` body `{ page, side, imageUrl, linkUrl, startAt, endAt }` — "추가" 버튼.
+- [x] 🟡 `DELETE /api/admin/ads/{id}` — 이력의 "삭제" 버튼.
+- [ ] 🟢 `POST /api/ads/{id}/impression`, `POST /api/ads/{id}/click` — 노출·클릭 수 집계. (안 함, 나중)
 
 ## 4-3. 광고 이미지 업로드 — 반드시 S3  🔴 필수 · ⚠️ 강조
 
@@ -271,25 +272,30 @@ Team_Namoo_Front/src/
 > **지금 상태:** 프론트가 `FileReader` 로 이미지를 base64 로 바꿔서 `localStorage` 에 넣고 있음. 임시임.
 
 **할 일:**
-- [ ] 🔴 **S3 버킷 생성** (예: `teamnamoo-ad-assets`, 서울 리전 `ap-northeast-2`).
-      퍼블릭 읽기는 버킷 직접 공개가 아니라 **CloudFront 경유**로.
-- [ ] 🔴 **업로드는 presigned URL 방식 권장** (서버 트래픽 최소):
-  1. 프론트가 `POST /api/admin/ads/image/presign` body `{ contentType, size }` 호출
-  2. 서버가 검증(확장자 `png/jpg/webp` 만, content-type 화이트리스트, 용량 상한 예: 2MB) 후
-     S3 `PutObject` 용 presigned URL + 최종 오브젝트 key 반환
-  3. 프론트가 그 URL 로 **S3 에 직접 PUT** (스프링 서버 안 거침)
-  4. 프론트가 `POST /api/admin/ads` 할 때 `imageUrl` = 업로드된 CloudFront URL
-- [ ] 🔴 presigned 가 부담되면 최소한 `POST /api/admin/ads/image` (multipart) 로 받아서
-      **즉시 S3 로 스트리밍 업로드** → S3/CloudFront URL 반환. **서버 디스크에 임시파일도 남기지 말 것.**
-- [ ] 🔴 오브젝트 key 는 서버가 UUID 로 새로 부여: `ads/{page}/{side}/{uuid}.{ext}`.
-      업로드된 원본 파일명은 신뢰하지 않는다.
-- [ ] 🔴 파일 검증: content-type + 매직바이트 확인. **SVG 는 XSS 위험 → 허용 안 함.**
-- [ ] 🟡 광고 삭제 시 S3 오브젝트도 정리 (또는 S3 lifecycle rule 로 미참조 오브젝트 자동 만료).
-- [ ] 🟡 권장 규격 160×600 (스카이스크래퍼). 업로드 시 리사이즈·최적화 (선택).
-- [ ] 🔴 IAM: 스프링 서버(EC2) 인스턴스 롤에 **해당 버킷의 `PutObject`/`DeleteObject` 만** 부여.
-      루트/개인 액세스 키를 코드나 env 에 넣지 말 것.
-- [ ] 🟡 설정값: `AWS_S3_BUCKET`, `AWS_REGION`, CloudFront 도메인을 EC2 env 로.
-      자격증명은 인스턴스 롤로 (키 하드코딩 금지).
+- [x] 🔴 **S3 버킷 생성** — `teamnamoo-ad-assets`, 서울 리전 `ap-northeast-2`. 퍼블릭 액세스 전부 차단,
+      ACL 비활성화(권장 옵션 그대로) — presigned PUT 방식이라 버킷 자체를 열 필요 없음.
+      CloudFront 는 아직 안 붙임(비워두면 S3 버킷 URL을 그대로 imageUrl 로 씀, 나중에 붙여도 코드 안 바뀜).
+- [x] 🔴 **업로드는 presigned URL 방식으로 구현**:
+  1. `POST /api/admin/ads/image/presign` body `{ contentType, size }`
+  2. 서버가 검증(png/jpg/webp 화이트리스트, 2MB 상한) 후 S3 `PutObject` 용 presigned URL(5분 만료) +
+     최종 오브젝트 URL 반환
+  3. 프론트가 그 URL 로 S3 에 직접 PUT
+  4. `POST /api/admin/ads` 할 때 `imageUrl` = 3번에서 받은 URL
+  - **미검증**: 로컬에 AWS 자격증명(액세스키)이 없어서 presign 발급 자체까지만 확인, 실제 S3 PUT
+    왕복은 아직 못 해봄. 검증/에러 응답(SVG 거부·용량 초과 400)은 로컬에서 확인 완료.
+- [ ] 🔴 multipart 업로드 대안 — presigned 로 구현했으므로 불필요 판단, 안 만듦.
+- [x] 🔴 오브젝트 key 는 UUID 로 새로 부여 — 단, `ads/{page}/{side}/{uuid}.{ext}` 가 아니라
+      `ads/{uuid}.{ext}` 로 단순화함. presign 요청 스펙이 `{ contentType, size }` 뿐이라 그 시점엔
+      page/side 를 알 방법이 없어서(광고 등록 전에 이미지부터 올리는 흐름) 폴더 구분을 뺐다.
+- [x] 🔴 파일 검증: content-type 화이트리스트(png/jpg/webp), SVG 명시적 거부. **매직바이트 검증은 못 함**
+      — presigned 방식은 서버가 실제 파일 바이트를 안 보고 S3로 직접 PUT되므로 구조적으로 불가능.
+      필요하면 4-3의 multipart 대안으로 바꿔야 함(현재는 안 함).
+- [ ] 🟡 광고 삭제 시 S3 오브젝트도 정리 — 안 함, DB row만 삭제됨. 나중에 필요해지면 추가.
+- [ ] 🟡 권장 규격 리사이즈·최적화 — 안 함 (선택 항목).
+- [ ] 🔴 IAM: EC2 인스턴스 롤에 버킷 PutObject 권한 부여 — **아직 안 함**. EC2 콘솔 작업이라
+      배포 시점에 해야 함(배포는 나중으로 미룸). 로컬 테스트는 액세스키 발급해서 해야 함.
+- [x] 🟡 설정값 env 화: `AWS_S3_BUCKET`/`AWS_REGION`/`AWS_CLOUDFRONT_DOMAIN`. 로컬은
+      `application-local.properties` 에 버킷명만 직접 넣어둠(자격증명은 안 넣음 — 기본 체인 사용).
 >
 > **한 줄 요약: 이미지 = S3. DB 저장 금지. 서버 디스크 저장 금지. presigned 로 서버 안 거치게. 꼭.**
 

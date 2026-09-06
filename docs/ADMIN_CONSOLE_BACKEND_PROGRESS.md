@@ -81,9 +81,47 @@
   익명 글쓰기·visibility 등을 지원 안 하는 예전 설계라 지금 스펙과 충돌해서 삭제하고 새로 만듦
   (다른 코드에서 참조 없는 것 확인 후 삭제).
 
+## 4. 광고관리 (ads 도메인 + S3 presigned 업로드) — 대부분 완료 (2026-09-07)
+- 신규 `ad/` 패키지: `Ad`(page/side/imageUrl/linkUrl/startAt/endAt/createdBy/createdAt), `AdSide`(LEFT/RIGHT),
+  `AdRepository`. `board`처럼 party FK 로 안 걸고 doc 스펙대로 `page` 를 그냥 문자열로 둠('main' 또는 정당명).
+- 회원용: `GET /api/ads?page=&side=` — 현재 시각 기준 활성 광고 1건, 없으면 204. `start_at`/`end_at` 둘 다
+  NULL이면 상시노출("기간 미설정")로, 하나만 NULL이면 그쪽만 무제한으로 취급(doc에 이 케이스 명시가 없어
+  판단해서 넣음).
+- 관리자: `GET /api/admin/ads?page=`(상태 계산: 노출중/예약/종료/기간미설정 포함), `POST /api/admin/ads`,
+  `DELETE /api/admin/ads/{id}`. `POST /api/admin/ads/image/presign` — S3 presigned PUT URL 발급
+  (png/jpg/webp 화이트리스트, 2MB 상한, SVG 명시적 거부).
+- `build.gradle` 에 AWS SDK v2 (`software.amazon.awssdk:bom:2.29.52` + `s3` — presigner는 별도 아티팩트가
+  아니라 `s3` 모듈에 포함돼 있음, 처음에 `s3-presigner` 를 따로 넣었다가 미해결 의존성 에러로 뺐음).
+- 사용자가 AWS 콘솔에서 S3 버킷 `teamnamoo-ad-assets`(서울) 생성 완료 — 퍼블릭 액세스 전부 차단,
+  ACL 비활성화 기본값 그대로. `aws.s3.bucket`/`aws.s3.region`/`aws.s3.cloudfront-domain` 를
+  `application.properties` 에 env var로 추가, 로컬 버킷명은 `application-local.properties` 에 직접 넣음
+  (CloudFront 는 아직 안 붙여서 비워둠 — 비어있으면 S3 버킷 URL을 그대로 imageUrl로 반환).
+- **로컬 docker 프로필로 실제 기동 후 curl로 확인**: 비로그인 401, 광고 등록→공개 API 노출→삭제 시 사라짐,
+  예약/노출중/종료/기간미설정 상태 계산 전부 정상, 종료일시<시작일시 400, presign의 SVG 거부/2MB초과
+  거부 400 — 전부 정상.
+- **미검증**: presign이 실제로 S3 PUT까지 되는지는 확인 못 함 — 로컬에 AWS 자격증명(액세스키)이 없어서
+  presign 호출이 `SdkClientException`(자격증명 없음) 500으로 남. 코드/버킷 설정 문제가 아니라 로컬 키
+  부재가 원인인 것까지는 확인함. EC2 배포 시 인스턴스 롤로 해결 예정이나, 배포는 사용자가 나중으로
+  미룸 — 로컬에서 진짜 업로드까지 보려면 IAM 액세스키를 임시로 하나 만들어야 함(아직 안 함).
+- **doc 대비 의도적으로 다르게 한 것**: 오브젝트 key를 `ads/{page}/{side}/{uuid}.{ext}` 가 아니라
+  `ads/{uuid}.{ext}` 로 단순화. presign 요청 계약이 `{ contentType, size }` 뿐이라 그 시점엔 어느
+  page/side 인지 알 방법이 없음(광고 등록 전에 이미지부터 올리는 흐름이라).
+- **doc 항목 중 구조적으로 못 하는 것**: 파일 매직바이트 검증 — presigned 방식은 서버가 실제 파일
+  바이트를 안 보고 프론트가 S3로 직접 PUT하므로 content-type 화이트리스트 이상은 서버가 검증할 수
+  없음. 필요해지면 4-3 문서의 multipart 대안으로 바꿔야 함(현재는 안 만듦).
+- **안 한 것(🟡/🟢, 문서에도 우선순위 낮음)**: 광고 삭제 시 S3 오브젝트 정리, 이미지 리사이즈,
+  노출/클릭수 집계(`/impression`, `/click`).
+- **프론트 연동 시 주의**: `Team_Namoo_Front/src/store/adStore.js` 의 `Ad` 타입은 `side` 를
+  `'left'|'right'` 소문자로 쓰는데, 백엔드 `AdSide` enum은 JSON 응답에 `"LEFT"`/`"RIGHT"` 대문자로
+  나간다(요청 파싱은 대소문자 안 가림). 프론트가 이 API로 갈아끼울 때 응답값 그대로 비교하는 곳이 있으면
+  소문자로 맞추거나 프론트에서 `.toLowerCase()` 필요. 그 외 필드명(`startAt`/`endAt`)과 null 처리
+  의미는 `pickActiveAd()`/`adScheduleLabel()` 과 동일하게 맞춰뒀음.
+- **아직 필요**: IAM — EC2 인스턴스 롤에 버킷 PutObject 권한 부여는 EC2 콘솔 작업이라 배포 시점에
+  같이 해야 함 (배포 자체를 나중으로 미룸).
+
 ## 아직 안 한 것
-- 4번 광고관리 + S3 업로드
 - 공지(pinned) 지정/해제 API — 위 3번 참고, 필요해지면 추가
+- 광고 S3 실업로드 검증, S3 오브젝트 정리, 노출/클릭 집계, EC2 IAM 롤 (위 4번 참고)
 
 ## 변경/신규 파일
 ```
@@ -112,6 +150,10 @@
   board/Comment.java, CommentRepository.java, CommentCreateRequest.java, CommentResponse.java
   admin/AdminPostResponse.java, AdminPostService.java, AdminPostController.java
   admin/AdminPostVisibilityRequest.java, AdminPostBulkVisibilityRequest.java
+  ad/Ad.java, AdSide.java, AdRepository.java, AdService.java, AdController.java, AdPublicResponse.java
+  admin/AdminAdController.java, AdminAdService.java, AdminAdResponse.java, AdminAdCreateRequest.java
+  admin/AdminAdImagePresignRequest.java, AdminAdImagePresignResponse.java
+  config/S3Config.java
 
 수정:
   member/Member.java
@@ -123,5 +165,7 @@
   config/LocalAdminInitializer.java
   email/EmailVerification.java, EmailVerificationRepository.java, EmailVerificationService.java
   news/CachedNewsArticle.java, CachedNewsArticleRepository.java, NewsCacheService.java
+  build.gradle (AWS SDK v2 s3 추가)
+  application.properties, application-local.properties (aws.s3.* 추가)
 ```
-(전부 `Team_Namoo_server/src/main/java/com/example/team_navigation_server/` 하위)
+(전부 `Team_Namoo_server/src/main/java/com/example/team_navigation_server/` 하위, build.gradle/properties는 `Team_Namoo_server/` 바로 밑 또는 `src/main/resources/`)
