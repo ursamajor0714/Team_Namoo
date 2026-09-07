@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class PostService {
@@ -19,13 +20,16 @@ public class PostService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final MemberRepository memberRepository;
+    private final PostVoteRepository postVoteRepository;
 
     public PostService(BoardRepository boardRepository, PostRepository postRepository,
-                        CommentRepository commentRepository, MemberRepository memberRepository) {
+                        CommentRepository commentRepository, MemberRepository memberRepository,
+                        PostVoteRepository postVoteRepository) {
         this.boardRepository = boardRepository;
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
         this.memberRepository = memberRepository;
+        this.postVoteRepository = postVoteRepository;
     }
 
     public PostListResponse list(String partyName, int boardIndex, int page, int size) {
@@ -89,6 +93,52 @@ public class PostService {
         Comment comment = new Comment(post, member, authorName, request.getContent());
         commentRepository.save(comment);
         return new CommentResponse(comment);
+    }
+
+    // 추천/비추천 - 로그인 회원만 가능(익명은 식별 불가). 같은 타입 재클릭 시 취소, 다른 타입이면 전환.
+    @Transactional
+    public PostVoteResponse vote(Long postId, Long memberId, PostVoteRequest request) {
+        Post post = findVisiblePost(postId);
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+        PostVoteType type = parseVoteType(request.getType());
+
+        Optional<PostVote> existing = postVoteRepository.findByPostAndMember(post, member);
+        String myVote;
+        if (existing.isEmpty()) {
+            postVoteRepository.save(new PostVote(post, member, type));
+            applyVoteDelta(post, type, 1);
+            myVote = type.name();
+        } else {
+            PostVote vote = existing.get();
+            if (vote.getType() == type) {
+                postVoteRepository.delete(vote);
+                applyVoteDelta(post, type, -1);
+                myVote = null;
+            } else {
+                applyVoteDelta(post, vote.getType(), -1);
+                applyVoteDelta(post, type, 1);
+                vote.changeType(type);
+                myVote = type.name();
+            }
+        }
+        return new PostVoteResponse(post.getLikes(), post.getDislikes(), myVote);
+    }
+
+    private void applyVoteDelta(Post post, PostVoteType type, int delta) {
+        if (type == PostVoteType.LIKE) {
+            if (delta > 0) post.increaseLikes(); else post.decreaseLikes();
+        } else {
+            if (delta > 0) post.increaseDislikes(); else post.decreaseDislikes();
+        }
+    }
+
+    private PostVoteType parseVoteType(String raw) {
+        try {
+            return PostVoteType.valueOf(raw.trim().toUpperCase());
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("잘못된 추천 유형입니다.");
+        }
     }
 
     private Member resolveWriter(Board board, Long memberId) {

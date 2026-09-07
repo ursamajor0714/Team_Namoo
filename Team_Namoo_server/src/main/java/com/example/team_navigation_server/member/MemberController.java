@@ -54,4 +54,10 @@ public class MemberController {
         boolean available = memberService.isEmailAvailable(email);
         return ResponseEntity.ok(Map.of("available", available));
     }
+
+    @GetMapping("/check-nickname")
+    public ResponseEntity<?> checkNickname(@RequestParam String nickname) {
+        boolean available = memberService.isNicknameAvailable(nickname);
+        return ResponseEntity.ok(Map.of("available", available));
+    }
 }

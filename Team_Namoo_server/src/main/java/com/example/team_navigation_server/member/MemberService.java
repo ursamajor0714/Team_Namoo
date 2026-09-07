@@ -33,8 +33,12 @@ public class MemberService {
         if (memberRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
+        if (memberRepository.existsByNickname(request.getNickname())) {
+            throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
+        }
+        String lowerNickname = request.getNickname().toLowerCase();
         for (String word : bannedWords) {
-            if (request.getNickname().contains(word)) {
+            if (lowerNickname.contains(word.toLowerCase())) {
                 throw new IllegalArgumentException("사용할 수 없는 닉네임입니다.");
             }
         }
@@ -81,6 +85,10 @@ public class MemberService {
 
     public boolean isEmailAvailable(String email) {
         return !memberRepository.existsByEmail(email);
+    }
+
+    public boolean isNicknameAvailable(String nickname) {
+        return !memberRepository.existsByNickname(nickname);
     }
     private final Set<String> bannedWords = Set.of(
             "시발", "씨발", "씨팔", "개새끼","새끼", "병신", "지랄", "좆", "자지","보지","엠창","느금",

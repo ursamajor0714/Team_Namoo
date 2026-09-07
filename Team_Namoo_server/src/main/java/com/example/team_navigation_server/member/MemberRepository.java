@@ -9,6 +9,7 @@ import java.util.Optional;
 public interface MemberRepository extends JpaRepository<Member, Long> {
     boolean existsByLoginId(String loginId);
     boolean existsByEmail(String email);
+    boolean existsByNickname(String nickname);
     Optional<Member> findByLoginId(String loginId);
 
     Page<Member> findByLoginIdContainingIgnoreCase(String q, Pageable pageable);

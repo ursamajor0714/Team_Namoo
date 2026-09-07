@@ -40,6 +40,17 @@ public class PostController {
         return ResponseEntity.ok(postService.getDetail(postId));
     }
 
+    @PostMapping("/api/posts/{postId}/vote")
+    public ResponseEntity<?> vote(@PathVariable Long postId,
+                                   @Valid @RequestBody PostVoteRequest request,
+                                   HttpSession session) {
+        Long memberId = (Long) session.getAttribute("loginMemberId");
+        if (memberId == null) {
+            return ResponseEntity.status(401).body("로그인이 필요합니다.");
+        }
+        return ResponseEntity.ok(postService.vote(postId, memberId, request));
+    }
+
     @GetMapping("/api/posts/{postId}/comments")
     public ResponseEntity<List<CommentResponse>> getComments(@PathVariable Long postId) {
         return ResponseEntity.ok(postService.getComments(postId));

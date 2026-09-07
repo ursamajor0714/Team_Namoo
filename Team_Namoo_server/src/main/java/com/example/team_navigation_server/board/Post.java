@@ -120,8 +120,28 @@ public class Post {
         return likes;
     }
 
+    public void increaseLikes() {
+        this.likes += 1;
+    }
+
+    public void decreaseLikes() {
+        if (this.likes > 0) {
+            this.likes -= 1;
+        }
+    }
+
     public int getDislikes() {
         return dislikes;
+    }
+
+    public void increaseDislikes() {
+        this.dislikes += 1;
+    }
+
+    public void decreaseDislikes() {
+        if (this.dislikes > 0) {
+            this.dislikes -= 1;
+        }
     }
 
     public Instant getCreatedAt() {
