@@ -1916,11 +1916,28 @@
   right: calc((100vw - 1126px) / 2 - 176px);
 }
 
-/* 본문(1126px) 양옆에 160px 레일을 온전히 놓으려면 1480px 이 필요하다. 그보다 좁은 노트북에서는
-   레일을 120px 로 줄이고 화면 가장자리에 붙여 본문과 겹치지 않게 한다 (최소 1400px). */
-@media (min-width: 1400px) {
+/* 본문(#root)이 1126px 고정이라 레일이 쓸 수 있는 폭은 (화면폭 - 1126) / 2 뿐이다.
+   그래서 화면이 좁아질수록 레일도 같이 줄여 본문을 침범하지 않게 단계를 둔다.
+   1280px: 여백 77px  ->  70px 레일   /  1400px: 여백 137px -> 120px 레일
+   1480px 이상에서만 원래 크기(160x600)로 본문 옆에 정위치한다. */
+@media (min-width: 1280px) {
   .ad-rail {
     display: block;
+    width: 70px;
+    height: 260px;
+  }
+
+  .ad-rail--left {
+    left: 4px;
+  }
+
+  .ad-rail--right {
+    right: 4px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .ad-rail {
     width: 120px;
     height: 450px;
   }

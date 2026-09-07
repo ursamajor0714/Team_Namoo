@@ -13,11 +13,7 @@ function AdRail({ page, side }) {
   const body = ad?.image ? (
     <img className="ad-rail__img" src={ad.image} alt="광고" />
   ) : (
-    <div className="ad-rail__placeholder">
-      광고 영역
-      <br />
-      160 × 600
-    </div>
+    <div className="ad-rail__placeholder">광고 영역</div>
   )
 
   return (
