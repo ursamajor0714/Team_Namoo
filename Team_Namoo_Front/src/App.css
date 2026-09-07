@@ -1916,9 +1916,36 @@
   right: calc((100vw - 1126px) / 2 - 176px);
 }
 
-@media (min-width: 1480px) {
+/* 본문(1126px) 양옆에 160px 레일을 온전히 놓으려면 1480px 이 필요하다. 그보다 좁은 노트북에서는
+   레일을 120px 로 줄이고 화면 가장자리에 붙여 본문과 겹치지 않게 한다 (최소 1400px). */
+@media (min-width: 1400px) {
   .ad-rail {
     display: block;
+    width: 120px;
+    height: 450px;
+  }
+
+  .ad-rail--left {
+    left: 8px;
+  }
+
+  .ad-rail--right {
+    right: 8px;
+  }
+}
+
+@media (min-width: 1480px) {
+  .ad-rail {
+    width: 160px;
+    height: 600px;
+  }
+
+  .ad-rail--left {
+    left: calc((100vw - 1126px) / 2 - 176px);
+  }
+
+  .ad-rail--right {
+    right: calc((100vw - 1126px) / 2 - 176px);
   }
 }
 
