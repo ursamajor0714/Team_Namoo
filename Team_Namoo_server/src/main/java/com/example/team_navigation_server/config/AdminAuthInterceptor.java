@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Component;
+import org.springframework.web.cors.CorsUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.io.IOException;
@@ -26,6 +27,12 @@ public class AdminAuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws IOException {
+        // 브라우저는 POST/PATCH 전에 CORS 예비 요청(OPTIONS)을 먼저 보내는데 여기엔 세션 쿠키가 실리지 않는다.
+        // 이걸 401로 막으면 브라우저가 본 요청을 아예 보내지 않아 프론트에는 "네트워크 에러"만 보인다.
+        if (CorsUtils.isPreFlightRequest(request)) {
+            return true;
+        }
+
         HttpSession session = request.getSession(false);
         Long memberId = session == null ? null : (Long) session.getAttribute("loginMemberId");
         if (memberId == null) {
