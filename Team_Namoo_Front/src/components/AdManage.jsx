@@ -1,32 +1,50 @@
-import { useRef, useState } from 'react'
-import { useAdStore, adScheduleLabel, nowLocalIso, AD_PAGES } from '../store/adStore'
-
-/** 업로드 이미지 권장 상한(약 1.5MB). localStorage 용량 때문에 큰 파일은 막는다. */
-const MAX_IMAGE_BYTES = 1_500_000
+import { useEffect, useRef, useState } from 'react'
+import { useAdStore, AD_PAGES } from '../store/adStore'
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_IMAGE_BYTES,
+  adErrorMessage,
+  uploadAdImage,
+} from '../api/adApi'
 
 const SIDES = [
-  { key: 'left', label: '좌측 광고' },
-  { key: 'right', label: '우측 광고' },
+  { key: 'LEFT', label: '좌측 광고' },
+  { key: 'RIGHT', label: '우측 광고' },
 ]
 
-const EMPTY_FORM = { image: null, linkUrl: '', startAt: '', endAt: '' }
+const EMPTY_FORM = { file: null, previewUrl: '', linkUrl: '', startAt: '', endAt: '' }
 
 const pageLabel = (key) => AD_PAGES.find((p) => p.key === key)?.label ?? key
 
-/** '2026-09-05T09:00' → '2026-09-05 09:00' */
-const fmt = (v) => (v ? v.replace('T', ' ') : '—')
+/** 서버가 주는 '2026-09-05T09:00:00' → '2026-09-05 09:00' */
+const fmt = (v) => (v ? v.slice(0, 16).replace('T', ' ') : '—')
 
 /**
- * 한 쪽(page, side) 광고 등록 폼. [추가] 를 누르면 store 에 쌓이고 폼은 비워진다.
- * @param {{ page: string, side: 'left'|'right', label: string }} props
+ * 한 쪽(page, side) 광고 등록 폼.
+ * [추가] 를 누르면 (1) 서버에서 presigned URL 을 받아 (2) 브라우저가 S3 로 이미지를 직접 올리고
+ * (3) 그 공개 URL 로 광고를 등록한다. 이미지를 안 고르면 기본 이미지 광고로 등록된다.
+ * @param {{ page: string, side: 'LEFT'|'RIGHT', label: string }} props
  */
 function AdSideForm({ page, side, label }) {
   const addAd = useAdStore((s) => s.addAd)
   const fileRef = useRef(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }))
+
+  // 미리보기용 objectURL 은 브라우저가 자동으로 해제하지 않으므로 교체·언마운트 시 직접 해제한다.
+  useEffect(() => {
+    if (!form.previewUrl) {
+      return undefined
+    }
+    return () => URL.revokeObjectURL(form.previewUrl)
+  }, [form.previewUrl])
+
+  function clearImage() {
+    set({ file: null, previewUrl: '' })
+  }
 
   function onFile(event) {
     const file = event.target.files?.[0]
@@ -34,25 +52,45 @@ function AdSideForm({ page, side, label }) {
     if (!file) {
       return
     }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setErr('이미지는 PNG, JPG, WEBP 만 올릴 수 있습니다.')
+      return
+    }
     if (file.size > MAX_IMAGE_BYTES) {
-      setErr('이미지가 너무 큽니다 (1.5MB 이하 권장).')
+      setErr('이미지가 너무 큽니다 (2MB 이하).')
       return
     }
     setErr('')
-    const reader = new FileReader()
-    reader.onload = () => set({ image: reader.result })
-    reader.onerror = () => setErr('이미지를 읽지 못했습니다.')
-    reader.readAsDataURL(file)
+    set({ file, previewUrl: URL.createObjectURL(file) })
   }
 
-  function submit() {
-    if (form.startAt && form.endAt && form.startAt > form.endAt) {
-      setErr('종료 일시가 시작보다 빠릅니다.')
+  async function submit() {
+    if (busy) {
+      return
+    }
+    // 서버는 종료가 시작보다 '뒤'일 것을 요구한다(같으면 400).
+    if (form.startAt && form.endAt && form.startAt >= form.endAt) {
+      setErr('종료 일시는 시작 일시보다 뒤여야 합니다.')
       return
     }
     setErr('')
-    addAd({ page, side, ...form })
-    setForm(EMPTY_FORM)
+    setBusy(true)
+    try {
+      const imageUrl = form.file ? await uploadAdImage(form.file) : null
+      await addAd({
+        page,
+        side,
+        imageUrl,
+        linkUrl: form.linkUrl || null,
+        startAt: form.startAt || null,
+        endAt: form.endAt || null,
+      })
+      setForm(EMPTY_FORM)
+    } catch (error) {
+      setErr(adErrorMessage(error, error?.message ?? '광고 등록에 실패했습니다.'))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -60,27 +98,34 @@ function AdSideForm({ page, side, label }) {
       <h3 className="adm-half__title">{label}</h3>
 
       <div className="adm-half__preview">
-        {form.image ? (
-          <img src={form.image} alt="광고 미리보기" />
+        {form.previewUrl ? (
+          <img src={form.previewUrl} alt="광고 미리보기" />
         ) : (
           <span>기본 이미지</span>
         )}
       </div>
 
       <div className="adm-half__btns">
-        <input type="file" accept="image/*" ref={fileRef} hidden onChange={onFile} />
+        <input
+          type="file"
+          accept={ALLOWED_IMAGE_TYPES.join(',')}
+          ref={fileRef}
+          hidden
+          onChange={onFile}
+        />
         <button
           type="button"
           className="btn btn--ghost"
           onClick={() => fileRef.current?.click()}
+          disabled={busy}
         >
           이미지 업로드
         </button>
         <button
           type="button"
           className="btn btn--ghost"
-          onClick={() => set({ image: null })}
-          disabled={!form.image}
+          onClick={clearImage}
+          disabled={busy || !form.previewUrl}
         >
           기본이미지로
         </button>
@@ -114,8 +159,13 @@ function AdSideForm({ page, side, label }) {
 
       {err && <p className="adm-half__err">{err}</p>}
 
-      <button type="button" className="btn btn--primary adm-half__add" onClick={submit}>
-        추가
+      <button
+        type="button"
+        className="btn btn--primary adm-half__add"
+        onClick={submit}
+        disabled={busy}
+      >
+        {busy ? '등록 중...' : '추가'}
       </button>
     </div>
   )
@@ -124,18 +174,30 @@ function AdSideForm({ page, side, label }) {
 /**
  * 관리자 - 광고관리 탭.
  * 페이지(메인 / 정당별)를 고르고, 화면을 좌/우로 갈라 각 슬롯 광고를 등록한다.
- * 추가하면 아래 "추가 이력"에 쌓이고, 노출 페이지의 AdRail 이 날짜·시간에 맞춰 읽어간다.
- * 저장 위치는 브라우저 localStorage 라 같은 브라우저에서만 반영된다.
+ * 등록한 광고는 서버에 저장되므로 모든 기기·모든 방문자에게 같이 보인다.
  */
 function AdManage() {
   const ads = useAdStore((s) => s.ads)
+  const loading = useAdStore((s) => s.loading)
+  const loadAds = useAdStore((s) => s.loadAds)
   const removeAd = useAdStore((s) => s.removeAd)
   const [page, setPage] = useState('main')
-  const now = nowLocalIso()
+  const [listErr, setListErr] = useState('')
 
-  const history = ads
-    .filter((a) => a.page === page)
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+  useEffect(() => {
+    loadAds(page).catch((error) =>
+      setListErr(adErrorMessage(error, '광고 목록을 불러오지 못했습니다.')),
+    )
+  }, [page, loadAds])
+
+  async function onRemove(id) {
+    try {
+      await removeAd(id)
+      setListErr('')
+    } catch (error) {
+      setListErr(adErrorMessage(error, '광고를 삭제하지 못했습니다.'))
+    }
+  }
 
   return (
     <section className="adm">
@@ -153,7 +215,7 @@ function AdManage() {
       </div>
 
       <p className="adm__note">
-        광고는 이 브라우저(localStorage)에만 저장됩니다. 이미지 1.5MB 이하 권장.
+        광고는 서버에 저장되어 모든 방문자에게 보입니다. 이미지는 PNG·JPG·WEBP, 2MB 이하.
         시작·종료 일시를 이어서 여러 건 등록하면 시각에 맞춰 다음 광고가 노출됩니다.
       </p>
 
@@ -164,32 +226,33 @@ function AdManage() {
       </div>
 
       <h2 className="adm-history__title">추가 이력 · {pageLabel(page)}</h2>
-      {history.length === 0 ? (
+      {listErr && <p className="adm-half__err">{listErr}</p>}
+      {loading ? (
+        <p className="adm-history__empty">불러오는 중...</p>
+      ) : ads.length === 0 ? (
         <p className="adm-history__empty">추가한 광고가 없습니다.</p>
       ) : (
         <ul className="adm-history">
-          {history.map((ad) => (
+          {ads.map((ad) => (
             <li key={ad.id} className="adm-history__row">
               <span className="adm-history__side">
-                {ad.side === 'left' ? '좌측' : '우측'}
+                {ad.side === 'LEFT' ? '좌측' : '우측'}
               </span>
               <span
-                className={`adm-badge adm-badge--${
-                  adScheduleLabel(ad, now) === '노출 중' ? 'on' : 'off'
-                }`}
+                className={`adm-badge adm-badge--${ad.status === '노출 중' ? 'on' : 'off'}`}
               >
-                {adScheduleLabel(ad, now)}
+                {ad.status}
               </span>
               <span className="adm-history__range">
                 {fmt(ad.startAt)} ~ {fmt(ad.endAt)}
               </span>
               <span className="adm-history__meta">
-                {ad.image ? '이미지 O' : '기본이미지'} · 등록 {fmt(ad.createdAt)}
+                {ad.imageUrl ? '이미지 O' : '기본이미지'} · 등록 {fmt(ad.createdAt)}
               </span>
               <button
                 type="button"
                 className="btn btn--ghost adm-history__del"
-                onClick={() => removeAd(ad.id)}
+                onClick={() => onRemove(ad.id)}
               >
                 삭제
               </button>
