@@ -4,8 +4,13 @@ import com.example.team_navigation_server.ad.Ad;
 import com.example.team_navigation_server.ad.AdSide;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 public class AdminAdResponse {
+
+    // AdService.findActive()와 동일한 이유로 KST 고정 - 안 그러면 관리자 목록의 상태 표시가
+    // 회원용 공개 API(GET /api/ads)의 실제 노출 여부와 어긋난다.
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final Long id;
     private final String page;
@@ -33,7 +38,7 @@ public class AdminAdResponse {
 
     // 시작/종료를 둘 다 안 정한 경우만 "기간 미설정" - 하나만 있으면 그 기준으로 예약/노출중/종료를 계산한다.
     private static String computeStatus(Ad ad) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
         LocalDateTime start = ad.getStartAt();
         LocalDateTime end = ad.getEndAt();
         if (start == null && end == null) return "기간 미설정";
