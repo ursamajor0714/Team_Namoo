@@ -12,6 +12,7 @@ public class AdminPostResponse {
     private final String author;
     private final Instant createdAt;
     private final PostVisibility visibility;
+    private final boolean pinned;
     private final int views;
     private final int likes;
 
@@ -22,6 +23,7 @@ public class AdminPostResponse {
         this.author = post.getAuthorName();
         this.createdAt = post.getCreatedAt();
         this.visibility = post.getVisibility();
+        this.pinned = post.isPinned();
         this.views = post.getViews();
         this.likes = post.getLikes();
     }
@@ -32,6 +34,7 @@ public class AdminPostResponse {
     public String getAuthor() { return author; }
     public Instant getCreatedAt() { return createdAt; }
     public PostVisibility getVisibility() { return visibility; }
+    public boolean isPinned() { return pinned; }
     public int getViews() { return views; }
     public int getLikes() { return likes; }
 }

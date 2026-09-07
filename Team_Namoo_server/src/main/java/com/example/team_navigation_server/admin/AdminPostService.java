@@ -57,6 +57,13 @@ public class AdminPostService {
         postRepository.saveAll(posts);
     }
 
+    public void updatePinned(Long id, boolean pinned) {
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
+        post.setPinned(pinned);
+        postRepository.save(post);
+    }
+
     private PostVisibility parseVisibility(String value) {
         try {
             return PostVisibility.valueOf(value.trim().toUpperCase());

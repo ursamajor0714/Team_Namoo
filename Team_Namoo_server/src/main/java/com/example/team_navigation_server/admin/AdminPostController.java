@@ -35,4 +35,11 @@ public class AdminPostController {
         adminPostService.updateVisibilityBulk(request.getIds(), request.getVisibility());
         return ResponseEntity.ok().build();
     }
+
+    @PatchMapping("/api/admin/posts/{id}/pinned")
+    public ResponseEntity<?> updatePinned(@PathVariable Long id,
+                                           @Valid @RequestBody AdminPostPinnedRequest request) {
+        adminPostService.updatePinned(id, request.getPinned());
+        return ResponseEntity.ok().build();
+    }
 }

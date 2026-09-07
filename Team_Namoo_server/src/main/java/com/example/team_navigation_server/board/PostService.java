@@ -151,8 +151,12 @@ public class PostService {
             }
             return null;
         }
-        return memberRepository.findById(memberId)
+        Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+        if (member.getSupportedParty() == null || !member.getSupportedParty().getId().equals(board.getParty().getId())) {
+            throw new IllegalArgumentException("지지 정당으로 설정한 게시판에서만 글/댓글을 쓸 수 있습니다.");
+        }
+        return member;
     }
 
     private Board findBoard(String partyName, int boardIndex) {

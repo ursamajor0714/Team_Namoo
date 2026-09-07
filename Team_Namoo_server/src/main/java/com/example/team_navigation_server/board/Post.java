@@ -108,6 +108,10 @@ public class Post {
         return pinned;
     }
 
+    public void setPinned(boolean pinned) {
+        this.pinned = pinned;
+    }
+
     public int getViews() {
         return views;
     }
