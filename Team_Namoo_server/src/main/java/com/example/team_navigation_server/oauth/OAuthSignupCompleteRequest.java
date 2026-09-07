@@ -18,7 +18,7 @@ public class OAuthSignupCompleteRequest {
     private String zipcode;
     private String addressBase;
     private String addressDetail;
-    private boolean agreeMarketing;
+    private Boolean agreeMarketing;
 
     public String getNickname() {
         return nickname;
@@ -69,10 +69,10 @@ public class OAuthSignupCompleteRequest {
     }
 
     public boolean isAgreeMarketing() {
-        return agreeMarketing;
+        return Boolean.TRUE.equals(agreeMarketing);
     }
 
-    public void setAgreeMarketing(boolean agreeMarketing) {
+    public void setAgreeMarketing(Boolean agreeMarketing) {
         this.agreeMarketing = agreeMarketing;
     }
 }

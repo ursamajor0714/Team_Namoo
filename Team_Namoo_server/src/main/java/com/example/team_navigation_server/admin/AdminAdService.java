@@ -73,15 +73,17 @@ public class AdminAdService {
     }
 
     public AdminAdImagePresignResponse presignImageUpload(AdminAdImagePresignRequest request) {
-        if (bucket.isBlank()) {
-            throw new IllegalStateException("AWS_S3_BUCKET 환경변수가 설정되지 않았습니다.");
-        }
+        // 요청 자체의 유효성(형식/용량)을 먼저 검증 - 버킷 설정 여부와 무관하게 400을 낼 수 있어야
+        // 로컬에 자격증명/버킷이 없어도 이 검증이 동작하는지 확인 가능하다.
         String ext = ALLOWED_CONTENT_TYPES.get(request.getContentType());
         if (ext == null) {
             throw new IllegalArgumentException("이미지 형식은 png/jpg/webp만 허용됩니다.");
         }
         if (request.getSize() > MAX_IMAGE_SIZE) {
             throw new IllegalArgumentException("이미지 용량은 2MB를 초과할 수 없습니다.");
+        }
+        if (bucket.isBlank()) {
+            throw new IllegalStateException("AWS_S3_BUCKET 환경변수가 설정되지 않았습니다.");
         }
 
         // 프론트가 아직 page/side를 안 넘겨서(doc 4-3 요청 계약이 contentType/size뿐) 폴더 없이 uuid 파일명만 쓴다.

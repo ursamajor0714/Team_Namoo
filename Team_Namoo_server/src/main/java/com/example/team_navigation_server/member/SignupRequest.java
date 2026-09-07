@@ -32,12 +32,12 @@ public class SignupRequest {
     private String zipcode;
     private String addressBase;
     private String addressDetail;
-    private boolean agreeMarketing;
+    private Boolean agreeMarketing;
 
     public SignupRequest(String loginId, String password, String email, String nickname,
                           String supportedParty, String signupChannel,
                           String zipcode, String addressBase, String addressDetail,
-                          boolean agreeMarketing) {
+                          Boolean agreeMarketing) {
         this.loginId = loginId;
         this.password = password;
         this.email = email;
@@ -77,6 +77,6 @@ public class SignupRequest {
         return addressDetail;
     }
     public boolean isAgreeMarketing() {
-        return agreeMarketing;
+        return Boolean.TRUE.equals(agreeMarketing);
     }
 }

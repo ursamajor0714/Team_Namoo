@@ -1,7 +1,7 @@
 package com.example.team_navigation_server.board;
 
 import com.example.team_navigation_server.member.Member;
-import com.example.team_navigation_server.member.MemberRepository;
+import com.example.team_navigation_server.member.MemberService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,16 +19,16 @@ public class PostService {
     private final BoardRepository boardRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
-    private final MemberRepository memberRepository;
+    private final MemberService memberService;
     private final PostVoteRepository postVoteRepository;
 
     public PostService(BoardRepository boardRepository, PostRepository postRepository,
-                        CommentRepository commentRepository, MemberRepository memberRepository,
+                        CommentRepository commentRepository, MemberService memberService,
                         PostVoteRepository postVoteRepository) {
         this.boardRepository = boardRepository;
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
-        this.memberRepository = memberRepository;
+        this.memberService = memberService;
         this.postVoteRepository = postVoteRepository;
     }
 
@@ -99,8 +99,7 @@ public class PostService {
     @Transactional
     public PostVoteResponse vote(Long postId, Long memberId, PostVoteRequest request) {
         Post post = findVisiblePost(postId);
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+        Member member = memberService.requireActiveMember(memberId);
         PostVoteType type = parseVoteType(request.getType());
 
         Optional<PostVote> existing = postVoteRepository.findByPostAndMember(post, member);
@@ -151,8 +150,7 @@ public class PostService {
             }
             return null;
         }
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+        Member member = memberService.requireActiveMember(memberId);
         if (member.getSupportedParty() == null || !member.getSupportedParty().getId().equals(board.getParty().getId())) {
             throw new IllegalArgumentException("지지 정당으로 설정한 게시판에서만 글/댓글을 쓸 수 있습니다.");
         }

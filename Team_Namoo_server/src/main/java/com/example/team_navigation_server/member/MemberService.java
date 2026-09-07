@@ -104,14 +104,27 @@ public class MemberService {
     }
 
     private Member assertActiveAndTouch(Member member) {
+        assertActive(member);
+        member.setLastAccessAt(LocalDateTime.now());
+        return memberRepository.save(member);
+    }
+
+    private void assertActive(Member member) {
         if (member.getStatus() == MemberStatus.SUSPENDED) {
             throw new IllegalArgumentException("정지된 계정입니다.");
         }
         if (member.getStatus() == MemberStatus.WITHDRAWN) {
             throw new IllegalArgumentException("탈퇴한 계정입니다.");
         }
-        member.setLastAccessAt(LocalDateTime.now());
-        return memberRepository.save(member);
+    }
+
+    // 로그인 시점 이후(세션이 이미 있는 상태)에서도 글쓰기/댓글/추천/신고 등 매 쓰기 액션마다
+    // 이걸로 재확인해야 한다 - 정지는 로그인 때 한 번만 걸리면 이미 로그인된 세션은 못 막는다.
+    public Member requireActiveMember(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+        assertActive(member);
+        return member;
     }
 
     private void validateNickname(String nickname) {

@@ -1,7 +1,7 @@
 package com.example.team_navigation_server.board;
 
 import com.example.team_navigation_server.member.Member;
-import com.example.team_navigation_server.member.MemberRepository;
+import com.example.team_navigation_server.member.MemberService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,14 +11,14 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
-    private final MemberRepository memberRepository;
+    private final MemberService memberService;
 
     public ReportService(ReportRepository reportRepository, PostRepository postRepository,
-                          CommentRepository commentRepository, MemberRepository memberRepository) {
+                          CommentRepository commentRepository, MemberService memberService) {
         this.reportRepository = reportRepository;
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
-        this.memberRepository = memberRepository;
+        this.memberService = memberService;
     }
 
     @Transactional
@@ -42,8 +42,7 @@ public class ReportService {
     }
 
     private void save(ReportTargetType targetType, Long targetId, Long memberId, String reason) {
-        Member reporter = memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+        Member reporter = memberService.requireActiveMember(memberId);
         if (reportRepository.existsByTargetTypeAndTargetIdAndReporterMember(targetType, targetId, reporter)) {
             throw new IllegalArgumentException("이미 신고한 대상입니다.");
         }
