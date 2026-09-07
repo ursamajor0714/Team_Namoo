@@ -6,11 +6,12 @@ import MemberManage from '../components/MemberManage'
 import ArticleManage from '../components/ArticleManage'
 import PostManage from '../components/PostManage'
 import AdManage from '../components/AdManage'
+import ReportManage from '../components/ReportManage'
 
-const ADMIN_TABS = ['회원관리', '기사관리', '게시글 관리', '광고관리']
+const ADMIN_TABS = ['회원관리', '기사관리', '게시글 관리', '광고관리', '신고관리']
 
 /**
- * 관리자 전용 페이지. 상단 탭으로 영역을 나눈다(아직 내용은 전부 준비중).
+ * 관리자 전용 페이지. 상단 탭으로 영역을 나눈다.
  * 관리자가 아니면(비로그인 포함) 홈으로 돌려보낸다.
  */
 function AdminPage() {
@@ -55,6 +56,7 @@ function AdminPage() {
         {activeTab === '기사관리' && <ArticleManage />}
         {activeTab === '게시글 관리' && <PostManage />}
         {activeTab === '광고관리' && <AdManage />}
+        {activeTab === '신고관리' && <ReportManage />}
       </main>
     </>
   )

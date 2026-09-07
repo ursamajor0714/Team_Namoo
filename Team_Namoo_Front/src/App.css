@@ -2210,3 +2210,49 @@
     color: var(--accent);
   }
 }
+
+/* ── 신고관리 (ReportManage) ─────────────────────────── */
+.rm__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.rm-list__inner {
+  min-width: 980px;
+}
+
+.rm-list__head,
+.rm-row {
+  display: grid;
+  grid-template-columns: 0.6fr 2fr 0.9fr 1.4fr 0.9fr 1.1fr 0.7fr 140px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.rm-list__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rm-row {
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.rm-row__actions {
+  display: flex;
+  gap: 4px;
+}
