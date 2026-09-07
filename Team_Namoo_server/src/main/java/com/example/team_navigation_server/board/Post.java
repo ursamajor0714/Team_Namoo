@@ -96,6 +96,13 @@ public class Post {
         return content;
     }
 
+    // 본인 글 수정 - 제목/내용만 바꾸고 수정 시각을 갱신한다.
+    public void updateContent(String title, String content) {
+        this.title = title;
+        this.content = content;
+        this.updatedAt = Instant.now();
+    }
+
     public PostVisibility getVisibility() {
         return visibility;
     }

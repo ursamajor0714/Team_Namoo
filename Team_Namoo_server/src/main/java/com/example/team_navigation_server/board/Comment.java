@@ -70,8 +70,17 @@ public class Comment {
         return content;
     }
 
+    // 본인 댓글 수정
+    public void updateContent(String content) {
+        this.content = content;
+    }
+
     public PostVisibility getVisibility() {
         return visibility;
+    }
+
+    public void setVisibility(PostVisibility visibility) {
+        this.visibility = visibility;
     }
 
     public Instant getCreatedAt() {

@@ -95,6 +95,55 @@ public class PostService {
         return new CommentResponse(comment);
     }
 
+    // 본인 글 수정 - 익명 글(authorMember 없음)은 소유자 특정이 안 돼서 수정 대상이 아니다.
+    @Transactional
+    public PostDetailResponse update(Long postId, Long memberId, PostUpdateRequest request) {
+        Post post = findVisiblePost(postId);
+        requireOwner(post.getAuthorMember(), memberId);
+        post.updateContent(request.getTitle(), request.getContent());
+        return new PostDetailResponse(post, commentCount(post));
+    }
+
+    // 본인 글 삭제 - 관리자 삭제와 동일하게 실제로 안 지우고 visibility만 DELETED로(복구 가능, 신고 이력 등 유지)
+    @Transactional
+    public void delete(Long postId, Long memberId) {
+        Post post = findVisiblePost(postId);
+        requireOwner(post.getAuthorMember(), memberId);
+        post.setVisibility(PostVisibility.DELETED);
+    }
+
+    @Transactional
+    public CommentResponse updateComment(Long commentId, Long memberId, CommentUpdateRequest request) {
+        Comment comment = findVisibleComment(commentId);
+        requireOwner(comment.getAuthorMember(), memberId);
+        comment.updateContent(request.getContent());
+        return new CommentResponse(comment);
+    }
+
+    @Transactional
+    public void deleteComment(Long commentId, Long memberId) {
+        Comment comment = findVisibleComment(commentId);
+        requireOwner(comment.getAuthorMember(), memberId);
+        comment.setVisibility(PostVisibility.DELETED);
+    }
+
+    // 로그인 상태(활성 계정)이면서 실제 작성자 본인인지 확인 - 익명 글/댓글(author null)은 항상 거부.
+    private void requireOwner(Member author, Long memberId) {
+        memberService.requireActiveMember(memberId);
+        if (author == null || !author.getId().equals(memberId)) {
+            throw new IllegalArgumentException("본인이 작성한 글/댓글만 수정·삭제할 수 있습니다.");
+        }
+    }
+
+    private Comment findVisibleComment(Long commentId) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 댓글입니다."));
+        if (comment.getVisibility() != PostVisibility.NORMAL) {
+            throw new IllegalArgumentException("존재하지 않는 댓글입니다.");
+        }
+        return comment;
+    }
+
     // 추천/비추천 - 로그인 회원만 가능(익명은 식별 불가). 같은 타입 재클릭 시 취소, 다른 타입이면 전환.
     @Transactional
     public PostVoteResponse vote(Long postId, Long memberId, PostVoteRequest request) {

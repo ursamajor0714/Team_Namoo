@@ -40,6 +40,27 @@ public class PostController {
         return ResponseEntity.ok(postService.getDetail(postId));
     }
 
+    @PutMapping("/api/posts/{postId}")
+    public ResponseEntity<?> update(@PathVariable Long postId,
+                                     @Valid @RequestBody PostUpdateRequest request,
+                                     HttpSession session) {
+        Long memberId = (Long) session.getAttribute("loginMemberId");
+        if (memberId == null) {
+            return ResponseEntity.status(401).body("로그인이 필요합니다.");
+        }
+        return ResponseEntity.ok(postService.update(postId, memberId, request));
+    }
+
+    @DeleteMapping("/api/posts/{postId}")
+    public ResponseEntity<?> delete(@PathVariable Long postId, HttpSession session) {
+        Long memberId = (Long) session.getAttribute("loginMemberId");
+        if (memberId == null) {
+            return ResponseEntity.status(401).body("로그인이 필요합니다.");
+        }
+        postService.delete(postId, memberId);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/api/posts/{postId}/vote")
     public ResponseEntity<?> vote(@PathVariable Long postId,
                                    @Valid @RequestBody PostVoteRequest request,
@@ -63,5 +84,26 @@ public class PostController {
         Long memberId = (Long) session.getAttribute("loginMemberId");
         CommentResponse response = postService.createComment(postId, memberId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/api/comments/{commentId}")
+    public ResponseEntity<?> updateComment(@PathVariable Long commentId,
+                                            @Valid @RequestBody CommentUpdateRequest request,
+                                            HttpSession session) {
+        Long memberId = (Long) session.getAttribute("loginMemberId");
+        if (memberId == null) {
+            return ResponseEntity.status(401).body("로그인이 필요합니다.");
+        }
+        return ResponseEntity.ok(postService.updateComment(commentId, memberId, request));
+    }
+
+    @DeleteMapping("/api/comments/{commentId}")
+    public ResponseEntity<?> deleteComment(@PathVariable Long commentId, HttpSession session) {
+        Long memberId = (Long) session.getAttribute("loginMemberId");
+        if (memberId == null) {
+            return ResponseEntity.status(401).body("로그인이 필요합니다.");
+        }
+        postService.deleteComment(commentId, memberId);
+        return ResponseEntity.ok().build();
     }
 }
