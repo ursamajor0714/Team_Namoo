@@ -5,7 +5,8 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "members")
+@Table(name = "members",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"oauth_provider", "oauth_id"}))
 public class Member {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,6 +50,14 @@ public class Member {
 
     @Column(nullable = false)
     private boolean agreeMarketing = false;
+
+    // SNS 로그인 계정만 채워짐 - 일반 가입 회원은 둘 다 null (유니크 제약은 null끼리 중복 허용됨).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "oauth_provider")
+    private OAuthProvider oauthProvider;
+
+    @Column(name = "oauth_id")
+    private String oauthId;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -147,6 +156,18 @@ public class Member {
     }
     public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+    public OAuthProvider getOauthProvider() {
+        return oauthProvider;
+    }
+    public void setOauthProvider(OAuthProvider oauthProvider) {
+        this.oauthProvider = oauthProvider;
+    }
+    public String getOauthId() {
+        return oauthId;
+    }
+    public void setOauthId(String oauthId) {
+        this.oauthId = oauthId;
     }
     public void setEmail(String email) {
         this.email = email;
