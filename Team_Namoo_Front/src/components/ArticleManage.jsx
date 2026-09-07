@@ -1,111 +1,77 @@
-import { useEffect, useMemo, useState } from 'react'
-import NewsModal from './NewsModal'
-import { fetchNewsByLeaning } from '../api/newsApi'
-import { PARTIES, PARTY_LEANING } from '../constants/parties'
+import { useCallback, useEffect, useState } from 'react'
+import { PARTIES } from '../constants/parties'
+import {
+  adminErrorMessage,
+  fetchArticles,
+  updateArticleVisibilityBulk,
+} from '../api/adminApi'
 
-const PER_PARTY = 20
+/** 검색어 입력이 멈춘 뒤 서버를 호출하기까지 기다리는 시간(ms). */
+const SEARCH_DEBOUNCE_MS = 300
 
 const SEARCH_SCOPES = [
   { value: 'title', label: '글제목' },
   { value: 'content', label: '내용' },
 ]
 
-/** 상태 3종. 관리자가 선택 기사에 일괄 적용한다(화면 state 에만 반영). */
-const STATUS = { NORMAL: '정상', DELETED: '삭제', HIDDEN: '감추기' }
+/** 서버 ArticleVisibility → 화면 표기. */
+const VISIBILITY_LABEL = { NORMAL: '정상', DELETED: '삭제', HIDDEN: '감추기' }
 
 /**
- * 정당(카테고리)별로 API 기사를 받아 게시글 목록 형태로 편다.
- * 상단에 카테고리 이동 버튼 → 그 아래 삭제/복구/감추기 → 목록 → 하단 검색바.
- * 기사에는 백엔드 id/상태가 없어 originalLink 를 키로 쓰고 상태는 목으로 관리한다.
- * 제목을 누르면 원문이 아니라 우리 뉴스 팝업(NewsModal)을 띄운다.
+ * 관리자 - 기사관리 탭.
+ * 정당(카테고리)별로 서버(/api/admin/articles)에서 기사를 받아 노출 상태를 바꾼다.
+ * 검색(제목/내용)도 서버가 수행한다.
+ * 관리자 기사 API 는 본문을 내려주지 않으므로, 제목을 누르면 원문을 새 탭으로 연다.
  */
 function ArticleManage() {
-  const [rows, setRows] = useState([])
-  // 상태는 기사(originalLink) 단위로 저장한다. 같은 기사가 여러 정당에 걸쳐 있어도
-  // 한 곳에서 바꾸면 나머지 정당에서도 같이 반영된다.
-  const [statusByLink, setStatusByLink] = useState({})
+  const [articles, setArticles] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState('')
   const [activeParty, setActiveParty] = useState(PARTIES[0])
   const [selected, setSelected] = useState(() => new Set())
   const [scope, setScope] = useState('title')
   const [term, setTerm] = useState('')
-  const [detailArticle, setDetailArticle] = useState(null)
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      setLoading(true)
-      setError(null)
-      try {
-        const lists = await Promise.all(
-          PARTIES.map((party) =>
-            fetchNewsByLeaning({
-              leaning: PARTY_LEANING[party],
-              partyKeyword: party,
-              count: PER_PARTY,
-            }).catch(() => []),
-          ),
-        )
-        if (cancelled) {
-          return
-        }
-        const flat = lists.flatMap((list, partyIdx) => {
-          const party = PARTIES[partyIdx]
-          return list.map((a, i) => ({
-            key: `${party}|${a.originalLink}`,
-            no: i + 1,
-            party,
-            article: a,
-          }))
-        })
-        setRows(flat)
-      } catch {
-        if (!cancelled) {
-          setError('기사를 불러오지 못했습니다.')
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }
-
-    load()
-    return () => {
-      cancelled = true
+  const load = useCallback(async (party, searchScope, searchTerm) => {
+    setLoading(true)
+    try {
+      const q = searchTerm.trim()
+      setArticles(await fetchArticles({ party, scope: searchScope, q: q || undefined }))
+      setError('')
+    } catch (err) {
+      setArticles([])
+      setError(adminErrorMessage(err, '기사를 불러오지 못했습니다.'))
+    } finally {
+      setLoading(false)
     }
   }, [])
 
-  /** 선택된 기사들의 상태를 next 로 바꾸고 선택 해제. originalLink 단위라 타 정당에도 반영된다. */
-  function applyStatus(next) {
+  useEffect(() => {
+    const timer = setTimeout(() => load(activeParty, scope, term), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [load, activeParty, scope, term])
+
+  /** 선택된 기사들의 노출 상태를 한 번에 바꾼다. */
+  async function applyVisibility(next) {
     if (selected.size === 0) {
       return
     }
-    const links = rows
-      .filter((r) => selected.has(r.key))
-      .map((r) => r.article.originalLink)
-    setStatusByLink((prev) => {
-      const nextMap = { ...prev }
-      for (const link of links) {
-        nextMap[link] = next
-      }
-      return nextMap
-    })
-    setSelected(new Set())
+    try {
+      await updateArticleVisibilityBulk([...selected], next)
+      setSelected(new Set())
+      await load(activeParty, scope, term)
+    } catch (err) {
+      setError(adminErrorMessage(err, '상태를 바꾸지 못했습니다.'))
+    }
   }
 
-  /** @param {object} article @returns {string} */
-  const statusOf = (article) => statusByLink[article.originalLink] ?? STATUS.NORMAL
-
-  function toggle(key) {
+  function toggle(id) {
     setSelected((prev) => {
       const nextSet = new Set(prev)
-      if (nextSet.has(key)) {
-        nextSet.delete(key)
+      if (nextSet.has(id)) {
+        nextSet.delete(id)
       } else {
-        nextSet.add(key)
+        nextSet.add(id)
       }
       return nextSet
     })
@@ -118,38 +84,6 @@ function ArticleManage() {
     setTerm('')
   }
 
-  const partyCounts = useMemo(() => {
-    const map = {}
-    for (const r of rows) {
-      map[r.party] = (map[r.party] ?? 0) + 1
-    }
-    return map
-  }, [rows])
-
-  const visible = useMemo(() => {
-    const q = term.trim().toLowerCase()
-    return rows.filter((r) => {
-      if (r.party !== activeParty) {
-        return false
-      }
-      if (!q) {
-        return true
-      }
-      const text =
-        scope === 'title'
-          ? r.article.title
-          : r.article.content || r.article.description || ''
-      return text.toLowerCase().includes(q)
-    })
-  }, [rows, activeParty, scope, term])
-
-  if (loading) {
-    return <p className="am__status">불러오는 중...</p>
-  }
-  if (error) {
-    return <p className="am__status am__status--error">{error}</p>
-  }
-
   return (
     <section className="am">
       <nav className="am__cats" aria-label="카테고리">
@@ -157,74 +91,63 @@ function ArticleManage() {
           <button
             key={party}
             type="button"
-            className={
-              party === activeParty
-                ? 'am__cat am__cat--active'
-                : 'am__cat'
-            }
+            className={party === activeParty ? 'am__cat am__cat--active' : 'am__cat'}
             onClick={() => moveTo(party)}
           >
             {party}
-            <span className="am__cat-count">{partyCounts[party] ?? 0}</span>
+            {party === activeParty && <span className="am__cat-count">{articles.length}</span>}
           </button>
         ))}
       </nav>
 
       <div className="am__toolbar">
         <span className="am__selected">{selected.size}개 선택</span>
-        <button
-          type="button"
-          className="am__action"
-          onClick={() => applyStatus(STATUS.DELETED)}
-        >
+        <button type="button" className="am__action" onClick={() => applyVisibility('DELETED')}>
           삭제
         </button>
-        <button
-          type="button"
-          className="am__action"
-          onClick={() => applyStatus(STATUS.NORMAL)}
-        >
+        <button type="button" className="am__action" onClick={() => applyVisibility('NORMAL')}>
           복구
         </button>
-        <button
-          type="button"
-          className="am__action"
-          onClick={() => applyStatus(STATUS.HIDDEN)}
-        >
+        <button type="button" className="am__action" onClick={() => applyVisibility('HIDDEN')}>
           감추기
         </button>
-        <span className="am__note">상태 변경은 화면에만 반영되고 저장되지 않습니다.</span>
+        <span className="am__note">감춘 기사는 회원 화면에서 보이지 않습니다.</span>
       </div>
 
-      {visible.length === 0 ? (
+      {error && <p className="am__status am__status--error">{error}</p>}
+
+      {loading ? (
+        <p className="am__status">불러오는 중...</p>
+      ) : articles.length === 0 ? (
         <p className="am-group__empty">표시할 기사가 없습니다.</p>
       ) : (
         <ul className="am-list">
-          {visible.map((r) => {
-            const st = statusOf(r.article)
-            return (
-              <li
-                key={r.key}
-                className={st === STATUS.NORMAL ? 'am-row' : 'am-row am-row--muted'}
+          {articles.map((article, index) => (
+            <li
+              key={article.id}
+              className={article.visibility === 'NORMAL' ? 'am-row' : 'am-row am-row--muted'}
+            >
+              <input
+                type="checkbox"
+                className="am-row__check"
+                checked={selected.has(article.id)}
+                onChange={() => toggle(article.id)}
+                aria-label={`${article.title} 선택`}
+              />
+              <span className="am-row__no">{index + 1}</span>
+              <a
+                className="am-row__title"
+                href={article.originalLink || article.link}
+                target="_blank"
+                rel="noreferrer"
               >
-                <input
-                  type="checkbox"
-                  className="am-row__check"
-                  checked={selected.has(r.key)}
-                  onChange={() => toggle(r.key)}
-                  aria-label={`${r.article.title} 선택`}
-                />
-                <span className="am-row__no">{r.no}</span>
-                <button
-                  type="button"
-                  className="am-row__title"
-                  onClick={() => setDetailArticle(r.article)}
-                >
-                  <span className="am-row__status">({st})</span> {r.article.title}
-                </button>
-              </li>
-            )
-          })}
+                <span className="am-row__status">
+                  ({VISIBILITY_LABEL[article.visibility] ?? article.visibility})
+                </span>{' '}
+                {article.title}
+              </a>
+            </li>
+          ))}
         </ul>
       )}
 
@@ -250,12 +173,6 @@ function ArticleManage() {
           aria-label="검색어"
         />
       </div>
-
-      <NewsModal
-        key={detailArticle?.originalLink}
-        article={detailArticle}
-        onClose={() => setDetailArticle(null)}
-      />
     </section>
   )
 }

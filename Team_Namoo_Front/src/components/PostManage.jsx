@@ -1,79 +1,176 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Modal from './Modal'
 import { PARTIES } from '../constants/parties'
-import { buildDummyPosts } from '../constants/dummyBoardPosts'
+import { STATUS_LABEL } from '../constants/adminMembers'
+import {
+  adminErrorMessage,
+  fetchMembers,
+  fetchPosts,
+  updateMemberStatus,
+  updatePostPinned,
+  updatePostVisibilityBulk,
+} from '../api/adminApi'
 
 const BOARD_IDS = [1, 2, 3, 4, 5]
 const boardName = (id) => `게시판${id}`
 
-/** 상태 3종. '삭제'도 실제 삭제가 아니라 회원 비공개 처리다(관리자에겐 계속 보임). */
-const STATUS = { NORMAL: '정상', DELETED: '삭제', HIDDEN: '감춤' }
+/** 서버 PostVisibility → 화면 표기. '삭제'도 실제 삭제가 아니라 회원 비공개 처리다. */
+const VISIBILITY_LABEL = { NORMAL: '정상', DELETED: '삭제', HIDDEN: '감춤' }
+
+/** 서버가 주는 ISO 시각 → 'YYYY-MM-DD' */
+const day = (v) => (v ? String(v).slice(0, 10) : '—')
+
+/**
+ * 글쓴이 상태 모달. 게시글 API 는 글쓴이 닉네임만 주므로 닉네임으로 회원을 찾아 상태를 바꾼다.
+ * @param {{ author: string, onClose: () => void }} props
+ */
+function AuthorModal({ author, onClose }) {
+  const [member, setMember] = useState(null)
+  const [message, setMessage] = useState('회원 정보를 불러오는 중...')
+  const [busy, setBusy] = useState(false)
+  /** 상태를 바꾼 뒤 다시 읽어오기 위한 카운터. */
+  const [reloadKey, setReloadKey] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchMembers({ field: 'nickname', q: author })
+      .then((page) => {
+        if (cancelled) {
+          return
+        }
+        const found = (page.content ?? []).find((m) => m.nickname === author) ?? null
+        setMember(found)
+        setMessage(found ? '' : '이 닉네임의 회원을 찾지 못했습니다.')
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return
+        }
+        setMember(null)
+        setMessage(adminErrorMessage(error, '회원 정보를 불러오지 못했습니다.'))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [author, reloadKey])
+
+  async function toggleSuspend() {
+    if (!member) {
+      return
+    }
+    setBusy(true)
+    try {
+      await updateMemberStatus(member.id, member.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED')
+      setReloadKey((n) => n + 1)
+    } catch (error) {
+      setMessage(adminErrorMessage(error, '상태를 바꾸지 못했습니다.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title={`글쓴이 · ${author}`} onClose={onClose}>
+      <p className="modal__text">
+        현재 상태: <strong>{member ? STATUS_LABEL[member.status] : '—'}</strong>
+        {message && (
+          <>
+            <br />
+            <span className="pm__note">{message}</span>
+          </>
+        )}
+      </p>
+      <div className="modal__actions">
+        <button type="button" className="btn btn--ghost" onClick={onClose}>
+          닫기
+        </button>
+        <button
+          type="button"
+          className="btn btn--primary"
+          onClick={toggleSuspend}
+          disabled={busy || !member}
+        >
+          {member?.status === 'SUSPENDED' ? '정지 해제' : '정지'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
 
 /**
  * 관리자 - 게시글 관리 탭.
- * 좌측 트리(정당 → 게시판) 에서 게시판을 고르면 그 게시판 글이 열린다.
- * 게시판 글은 더미(dummyBoardPosts) 다. 삭제/감추기/복구는 화면 state 에만 반영되고,
- * '삭제'여도 실제로 지워지지 않고 회원 화면에서만 비공개된다는 개념이다.
+ * 좌측 트리(정당 → 게시판)에서 게시판을 고르면 서버에서 그 게시판 글을 받아온다.
+ * 삭제/감추기/복구는 노출 상태 변경이고, 실제로 글이 지워지지는 않는다.
  */
 function PostManage() {
   const [openParty, setOpenParty] = useState(PARTIES[0])
   const [board, setBoard] = useState(null) // { party, boardId }
-  const [statusByPost, setStatusByPost] = useState({}) // `${party}|${boardId}|${postId}` -> status
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [checked, setChecked] = useState(() => new Set())
-  const [suspended, setSuspended] = useState(() => new Set()) // 정지된 글쓴이 이름
-  const [authorModal, setAuthorModal] = useState(null) // 클릭한 글쓴이 이름
+  const [authorModal, setAuthorModal] = useState(null)
 
-  const posts = useMemo(
-    () => (board ? buildDummyPosts(board.boardId) : []),
-    [board],
-  )
-
-  const postKey = (post) => `${board.party}|${board.boardId}|${post.id}`
-  const statusOf = (post) => statusByPost[postKey(post)] ?? STATUS.NORMAL
+  const load = useCallback(async (target) => {
+    if (!target) {
+      return
+    }
+    setLoading(true)
+    try {
+      setPosts(await fetchPosts(target.party, target.boardId))
+      setError('')
+    } catch (err) {
+      setPosts([])
+      setError(adminErrorMessage(err, '게시글을 불러오지 못했습니다.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   function selectBoard(party, boardId) {
-    setBoard({ party, boardId })
+    const target = { party, boardId }
+    setBoard(target)
     setChecked(new Set())
+    load(target)
   }
 
-  function toggle(post) {
+  function toggle(id) {
     setChecked((prev) => {
       const next = new Set(prev)
-      const k = postKey(post)
-      if (next.has(k)) {
-        next.delete(k)
+      if (next.has(id)) {
+        next.delete(id)
       } else {
-        next.add(k)
+        next.add(id)
       }
       return next
     })
   }
 
-  function apply(nextStatus) {
+  async function apply(nextVisibility) {
     if (checked.size === 0) {
       return
     }
-    setStatusByPost((prev) => {
-      const next = { ...prev }
-      for (const k of checked) {
-        next[k] = nextStatus
-      }
-      return next
-    })
-    setChecked(new Set())
+    try {
+      await updatePostVisibilityBulk([...checked], nextVisibility)
+      setChecked(new Set())
+      await load(board)
+    } catch (err) {
+      setError(adminErrorMessage(err, '상태를 바꾸지 못했습니다.'))
+    }
   }
 
-  /** 글쓴이 정지/해제 토글. */
-  function toggleSuspend(author) {
-    setSuspended((prev) => {
-      const next = new Set(prev)
-      if (next.has(author)) {
-        next.delete(author)
-      } else {
-        next.add(author)
-      }
-      return next
-    })
+  /** 선택한 글을 공지로 지정하거나 해제한다. */
+  async function applyPinned(pinned) {
+    if (checked.size === 0) {
+      return
+    }
+    try {
+      await Promise.all([...checked].map((id) => updatePostPinned(id, pinned)))
+      setChecked(new Set())
+      await load(board)
+    } catch (err) {
+      setError(adminErrorMessage(err, '공지 설정을 바꾸지 못했습니다.'))
+    }
   }
 
   return (
@@ -95,8 +192,7 @@ function PostManage() {
               {open && (
                 <ul className="pm-tree__boards">
                   {BOARD_IDS.map((id) => {
-                    const active =
-                      board && board.party === party && board.boardId === id
+                    const active = board && board.party === party && board.boardId === id
                     return (
                       <li key={id}>
                         <button
@@ -131,113 +227,88 @@ function PostManage() {
 
             <div className="pm__toolbar">
               <span className="pm__selected">{checked.size}개 선택</span>
-              <button
-                type="button"
-                className="pm__action"
-                onClick={() => apply(STATUS.DELETED)}
-              >
+              <button type="button" className="pm__action" onClick={() => apply('DELETED')}>
                 삭제
               </button>
-              <button
-                type="button"
-                className="pm__action"
-                onClick={() => apply(STATUS.HIDDEN)}
-              >
+              <button type="button" className="pm__action" onClick={() => apply('HIDDEN')}>
                 감추기
               </button>
-              <button
-                type="button"
-                className="pm__action"
-                onClick={() => apply(STATUS.NORMAL)}
-              >
+              <button type="button" className="pm__action" onClick={() => apply('NORMAL')}>
                 복구
+              </button>
+              <button type="button" className="pm__action" onClick={() => applyPinned(true)}>
+                공지 지정
+              </button>
+              <button type="button" className="pm__action" onClick={() => applyPinned(false)}>
+                공지 해제
               </button>
               <span className="pm__note">
                 삭제해도 실제로 지워지지 않고 회원 화면에서만 비공개됩니다.
               </span>
             </div>
 
-            <table className="pm-list">
-              <thead>
-                <tr>
-                  <th className="pm-list__col-check" />
-                  <th className="pm-list__col-num">번호</th>
-                  <th className="pm-list__col-title">제목</th>
-                  <th className="pm-list__col-author">글쓴이</th>
-                  <th className="pm-list__col-date">작성일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {posts.map((post) => {
-                  const st = statusOf(post)
-                  return (
+            {error && <p className="pm__note">{error}</p>}
+
+            {loading ? (
+              <p className="pm__hint">불러오는 중...</p>
+            ) : posts.length === 0 ? (
+              <p className="pm__hint">이 게시판에는 글이 없습니다.</p>
+            ) : (
+              <table className="pm-list">
+                <thead>
+                  <tr>
+                    <th className="pm-list__col-check" />
+                    <th className="pm-list__col-num">번호</th>
+                    <th className="pm-list__col-title">제목</th>
+                    <th className="pm-list__col-author">글쓴이</th>
+                    <th className="pm-list__col-date">작성일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {posts.map((post) => (
                     <tr
                       key={post.id}
                       className={
-                        st === STATUS.NORMAL ? 'pm-row' : 'pm-row pm-row--muted'
+                        post.visibility === 'NORMAL' ? 'pm-row' : 'pm-row pm-row--muted'
                       }
                     >
                       <td className="pm-list__col-check">
                         <input
                           type="checkbox"
-                          checked={checked.has(postKey(post))}
-                          onChange={() => toggle(post)}
+                          checked={checked.has(post.id)}
+                          onChange={() => toggle(post.id)}
                           aria-label={`${post.title} 선택`}
                         />
                       </td>
                       <td className="pm-list__col-num">{post.num}</td>
                       <td className="pm-list__col-title">
-                        <span className="pm-status">({st})</span> {post.title}
+                        <span className="pm-status">
+                          ({VISIBILITY_LABEL[post.visibility] ?? post.visibility})
+                        </span>{' '}
+                        {post.pinned && '[공지] '}
+                        {post.title}
                       </td>
                       <td className="pm-list__col-author">
                         <button
                           type="button"
-                          className={
-                            suspended.has(post.author)
-                              ? 'pm-author pm-author--suspended'
-                              : 'pm-author'
-                          }
+                          className="pm-author"
                           onClick={() => setAuthorModal(post.author)}
                         >
                           {post.author}
-                          {suspended.has(post.author) && ' (정지)'}
                         </button>
                       </td>
-                      <td className="pm-list__col-date">{post.date}</td>
+                      <td className="pm-list__col-date">{day(post.createdAt)}</td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </>
         )}
       </div>
 
       {authorModal && (
-        <Modal title={`글쓴이 · ${authorModal}`} onClose={() => setAuthorModal(null)}>
-          <p className="modal__text">
-            현재 상태:{' '}
-            <strong>{suspended.has(authorModal) ? '정지' : '정상'}</strong>
-            <br />
-            <span className="pm__note">목 데이터입니다. 저장되지 않습니다.</span>
-          </p>
-          <div className="modal__actions">
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={() => setAuthorModal(null)}
-            >
-              닫기
-            </button>
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => toggleSuspend(authorModal)}
-            >
-              {suspended.has(authorModal) ? '정지 해제' : '정지'}
-            </button>
-          </div>
-        </Modal>
+        <AuthorModal author={authorModal} onClose={() => setAuthorModal(null)} />
       )}
     </section>
   )
