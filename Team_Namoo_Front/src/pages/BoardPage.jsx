@@ -1,17 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { NOTICE_POSTS, buildDummyPosts } from '../constants/dummyBoardPosts'
-
-function today() {
-  const now = new Date()
-  return `${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`
-}
-
-function byDateDesc(a, b) {
-  const [aMonth, aDay] = a.date.split('.').map(Number)
-  const [bMonth, bDay] = b.date.split('.').map(Number)
-  return bMonth - aMonth || bDay - aDay
-}
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { boardErrorMessage, fetchBoardPosts } from '../api/boardApi'
 
 const SEARCH_SCOPES = [
   { value: 'title', label: '제목' },
@@ -26,63 +15,79 @@ const TABS = [
 
 const BEST_MIN_LIKES = 30
 
+/** 서버가 주는 ISO 시각 → 'MM.DD' */
+function shortDate(value) {
+  if (!value) {
+    return '—'
+  }
+  return String(value).slice(5, 10).replace('-', '.')
+}
+
+/**
+ * 정당별 게시판 목록.
+ * 글·공지는 서버(GET /api/parties/{party}/boards/{id}/posts)에서 받아온다.
+ * 검색과 베스트(추천 30 이상)는 받아온 목록 안에서 추린다.
+ */
 function BoardPage() {
   const { name, boardId } = useParams()
-  const location = useLocation()
-  const navigate = useNavigate()
 
-  const dummyPosts = useMemo(() => buildDummyPosts(boardId), [boardId])
-  // 글쓰기 폼에서 navigate(state: {newPost}) 로 넘어온 글을 목록 맨 위에 최초 1회 반영한다.
-  const [localPosts] = useState(() => {
-    const draft = location.state?.newPost
-    if (!draft) {
-      return []
-    }
-    return [
-      {
-        id: `local-${Date.now()}`,
-        num: dummyPosts.length + 1,
-        title: draft.title,
-        content: draft.content,
-        commentCount: 0,
-        author: draft.author,
-        date: today(),
-        views: 0,
-        likes: 0,
-      },
-    ]
-  })
+  const [notices, setNotices] = useState([])
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
   const [scope, setScope] = useState('title')
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState('all')
 
-  // 새로고침/뒤로가기 시 글이 중복 추가되지 않도록 반영 직후 history state 를 비운다.
   useEffect(() => {
-    if (location.state?.newPost) {
-      navigate(location.pathname, { replace: true, state: null })
+    let cancelled = false
+    fetchBoardPosts(name, boardId)
+      .then((data) => {
+        if (cancelled) {
+          return
+        }
+        setNotices(data.notices ?? [])
+        setPosts(data.posts ?? [])
+        setError('')
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (cancelled) {
+          return
+        }
+        setNotices([])
+        setPosts([])
+        setError(boardErrorMessage(err, '게시글을 불러오지 못했습니다.'))
+        setLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
-  }, [location.state, location.pathname, navigate])
+  }, [name, boardId])
 
-  const posts = [...localPosts, ...dummyPosts]
-  const noticePosts = [...NOTICE_POSTS].sort(byDateDesc)
   const bestPosts = posts
     .filter((post) => post.likes >= BEST_MIN_LIKES)
     .sort((a, b) => b.likes - a.likes)
 
-  const baseList = tab === 'notice' ? noticePosts : tab === 'best' ? bestPosts : posts
+  const baseList = tab === 'notice' ? notices : tab === 'best' ? bestPosts : posts
   const visiblePosts = query
-    ? baseList.filter((post) => post[scope].includes(query))
+    ? baseList.filter((post) => String(post[scope] ?? '').includes(query))
     : baseList
-  const showPinnedNotices = tab === 'all'
+  const showPinnedNotices = tab === 'all' && !query
 
-  const emptyMessage = query
-    ? '검색 결과가 없습니다.'
-    : tab === 'best'
-      ? `추천 ${BEST_MIN_LIKES} 이상인 글이 없습니다.`
-      : tab === 'notice'
-        ? '공지사항이 없습니다.'
-        : '게시글이 없습니다.'
+  const emptyMessage = error
+    ? error
+    : loading
+      ? '불러오는 중...'
+      : query
+        ? '검색 결과가 없습니다.'
+        : tab === 'best'
+          ? `추천 ${BEST_MIN_LIKES} 이상인 글이 없습니다.`
+          : tab === 'notice'
+            ? '공지사항이 없습니다.'
+            : '게시글이 없습니다.'
 
   const handleGoHome = () => {
     setTab('all')
@@ -101,7 +106,6 @@ function BoardPage() {
       <td className="board-list__col-title">
         <Link
           to={`/party/${encodeURIComponent(name)}/board/${boardId}/post/${post.id}`}
-          state={{ post }}
           className="board-list__title-link"
         >
           {post.title}
@@ -111,7 +115,7 @@ function BoardPage() {
         )}
       </td>
       <td className="board-list__col-author">{post.author}</td>
-      <td className="board-list__col-date">{post.date}</td>
+      <td className="board-list__col-date">{shortDate(post.createdAt)}</td>
       <td className="board-list__col-views">{post.views}</td>
       <td className="board-list__col-likes">{post.likes}</td>
     </tr>
@@ -152,7 +156,7 @@ function BoardPage() {
           </tr>
         </thead>
         <tbody>
-          {showPinnedNotices && noticePosts.map((post) => renderPostRow(post, true))}
+          {showPinnedNotices && notices.map((post) => renderPostRow(post, true))}
           {visiblePosts.length === 0 ? (
             <tr className="board-list__row">
               <td className="board-list__col-empty" colSpan={6}>

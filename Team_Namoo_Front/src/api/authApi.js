@@ -65,6 +65,16 @@ export async function checkLoginId(loginId) {
 }
 
 /**
+ * 닉네임 중복 확인. 사용 가능하면 true.
+ * @param {string} nickname
+ * @returns {Promise<boolean>}
+ */
+export async function checkNickname(nickname) {
+  const response = await apiClient.get('/api/members/check-nickname', { params: { nickname } })
+  return response.data.available
+}
+
+/**
  * 이메일 중복 확인. 사용 가능하면 true.
  * @param {string} email
  * @returns {Promise<boolean>}

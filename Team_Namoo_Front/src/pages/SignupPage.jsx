@@ -1,7 +1,13 @@
 import { useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { checkLoginId, checkEmail, sendEmailCode, verifyEmailCode } from '../api/authApi'
+import {
+  checkEmail,
+  checkLoginId,
+  checkNickname,
+  sendEmailCode,
+  verifyEmailCode,
+} from '../api/authApi'
 import { PARTIES } from '../constants/parties'
 import { TERMS_OF_SERVICE, PRIVACY_NOTICE } from '../constants/agreements'
 import { containsBannedWord } from '../constants/bannedWords'
@@ -235,6 +241,14 @@ function SignupPage() {
     setSubmitError('')
     setSubmitting(true)
     try {
+      // 닉네임은 형식만 로컬에서 보고, 중복 여부는 서버에 물어본다(가입 실패로 되돌아오는 것보다 낫다).
+      if (!(await checkNickname(nickname.trim()))) {
+        setFieldErrors((prev) => ({ ...prev, nickname: '이미 사용 중인 닉네임입니다.' }))
+        nicknameRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        nicknameRef.current?.focus({ preventScroll: true })
+        setSubmitting(false)
+        return
+      }
       await signup({
         loginId,
         password,

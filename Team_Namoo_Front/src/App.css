@@ -2256,3 +2256,15 @@
   display: flex;
   gap: 4px;
 }
+
+/* 댓글 신고 버튼 - 댓글 머리글 오른쪽에 작게 붙는다. */
+.post-comments__report {
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+}
