@@ -118,3 +118,43 @@ export async function fetchMe() {
     throw error
   }
 }
+
+// ── SNS 로그인 (구글/네이버) ─────────────────────────────
+//   GET  /api/members/oauth/{provider}/login-url -> { url }   (state 를 세션에 저장한다)
+//   POST /api/members/oauth/{provider}/callback  { code, state }
+//        -> { status: 'LOGIN', member } | { status: 'SIGNUP_REQUIRED', email, suggestedNickname }
+//   POST /api/members/oauth/signup { nickname, supportedParty, ... } -> { status: 'LOGIN', member }
+//
+// state 는 서버 세션에 담기므로 로그인 시작과 콜백이 같은 세션이어야 한다(withCredentials 필수).
+
+/**
+ * SNS 인증 페이지 주소를 받아온다. 이 주소로 이동시키면 된다.
+ * @param {'google'|'naver'} provider
+ * @returns {Promise<string>}
+ */
+export async function fetchOAuthLoginUrl(provider) {
+  const response = await apiClient.get(`/api/members/oauth/${provider}/login-url`)
+  return response.data.url
+}
+
+/**
+ * SNS 가 돌려준 code/state 를 서버에 넘겨 로그인 또는 가입 필요 여부를 받는다.
+ * @param {'google'|'naver'} provider
+ * @param {string} code
+ * @param {string} state
+ */
+export async function oauthCallback(provider, code, state) {
+  const response = await apiClient.post(`/api/members/oauth/${provider}/callback`, { code, state })
+  return response.data
+}
+
+/**
+ * SNS 첫 로그인일 때 추가 정보를 받아 가입을 마친다.
+ * @param {{ nickname: string, supportedParty: string, signupChannel?: string,
+ *           zipcode?: string, addressBase?: string, addressDetail?: string,
+ *           agreeMarketing?: boolean }} payload
+ */
+export async function oauthSignup(payload) {
+  const response = await apiClient.post('/api/members/oauth/signup', payload)
+  return response.data
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { fetchOAuthLoginUrl } from '../api/authApi'
 import Modal from '../components/Modal'
 
 /**
@@ -21,6 +22,7 @@ function LoginPage() {
   const [showPublicWarning, setShowPublicWarning] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [snsBusy, setSnsBusy] = useState('')
 
   // 이미 로그인한 상태면 로그인 페이지를 보여줄 이유가 없다.
   if (user) {
@@ -34,6 +36,24 @@ function LoginPage() {
     // 체크할 때만 공용 PC 경고를 띄운다.
     if (checked) {
       setShowPublicWarning(true)
+    }
+  }
+
+  /**
+   * SNS 인증 페이지로 이동한다. state 를 서버 세션에 심어야 해서 주소를 서버에서 받아온다.
+   * @param {'google'|'naver'} provider
+   */
+  async function startOAuth(provider) {
+    if (snsBusy) {
+      return
+    }
+    setError('')
+    setSnsBusy(provider)
+    try {
+      window.location.href = await fetchOAuthLoginUrl(provider)
+    } catch {
+      setError('SNS 로그인을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.')
+      setSnsBusy('')
     }
   }
 
@@ -104,6 +124,28 @@ function LoginPage() {
         <button type="submit" className="login-box__submit" disabled={submitting}>
           {submitting ? '로그인 중...' : '로그인'}
         </button>
+
+        <div className="sns-login">
+          <span className="sns-login__divider">SNS 계정으로 로그인</span>
+          <button
+            type="button"
+            className="sns-login__btn sns-login__btn--naver"
+            onClick={() => startOAuth('naver')}
+            disabled={Boolean(snsBusy)}
+          >
+            <span className="sns-login__mark" aria-hidden="true">N</span>
+            {snsBusy === 'naver' ? '이동 중...' : '네이버로 로그인'}
+          </button>
+          <button
+            type="button"
+            className="sns-login__btn sns-login__btn--google"
+            onClick={() => startOAuth('google')}
+            disabled={Boolean(snsBusy)}
+          >
+            <span className="sns-login__mark" aria-hidden="true">G</span>
+            {snsBusy === 'google' ? '이동 중...' : 'Google로 로그인'}
+          </button>
+        </div>
       </form>
 
       <nav className="login-links" aria-label="계정 도움말">

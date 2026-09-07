@@ -2268,3 +2268,54 @@
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* ── SNS 로그인 버튼 (LoginPage) ─────────────────────── */
+.sns-login {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.sns-login__divider {
+  margin-bottom: 2px;
+  color: var(--text);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* 가로로 꽉 차는 긴 버튼. 브랜드 색은 각 제공자 가이드를 따른다. */
+.sns-login__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.sns-login__mark {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.sns-login__btn--naver {
+  background: #03c75a;
+  color: #fff;
+}
+
+.sns-login__btn--google {
+  background: #fff;
+  color: #1f1f1f;
+  border-color: #dadce0;
+}

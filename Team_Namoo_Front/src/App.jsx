@@ -11,6 +11,7 @@ import PostDetailPage from './pages/PostDetailPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import AdminPage from './pages/AdminPage'
+import OAuthCallbackPage from './pages/OAuthCallbackPage'
 import { useAuthStore } from './store/authStore'
 import './App.css'
 
@@ -45,6 +46,7 @@ function App() {
         </Route>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/oauth/:provider/callback" element={<OAuthCallbackPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Routes>
 
