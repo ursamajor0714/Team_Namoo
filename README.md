@@ -1,18 +1,16 @@
-
-
-https://github.com/user-attachments/assets/00bed845-0988-4c41-b26b-74e2b94f2fd2
-
-
-
 # Team_Namoo
 
 **정치 뉴스를, 어느 쪽 이야기인지 한눈에.**
 
 🔗 https://main.d11ftaq8rgsma0.amplifyapp.com
 
+https://github.com/user-attachments/assets/218e04c3-671e-414f-b05b-5d49b02889c2
 
+https://github.com/user-attachments/assets/c20f3ade-0be6-4efc-a162-d7819dd1615b
 
+https://github.com/user-attachments/assets/14867968-b694-485e-8bf2-2e8e368be051
 
+https://github.com/user-attachments/assets/8aeab6bd-4a11-4492-8e14-6490aac527e8
 
 ---
 
