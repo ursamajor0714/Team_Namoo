@@ -2,12 +2,17 @@
 
 **정치 뉴스를, 어느 쪽 이야기인지 한눈에.**
 
+* 메인 페이지
 🔗 https://main.d11ftaq8rgsma0.amplifyapp.com
 
+*AI 시연 페이지
+🔗 https://main.d11ftaq8rgsma0.amplifyapp.com/ai
+
+https://github.com/user-attachments/assets/9baf9854-4354-41fd-8cd7-28d67f43a340
+
+https://github.com/user-attachments/assets/82dae150-0da1-4e4a-b984-d0c909b6557a
 
 https://github.com/user-attachments/assets/218e04c3-671e-414f-b05b-5d49b02889c2
-
-https://github.com/user-attachments/assets/c20f3ade-0be6-4efc-a162-d7819dd1615b
 
 https://github.com/user-attachments/assets/14867968-b694-485e-8bf2-2e8e368be051
 
