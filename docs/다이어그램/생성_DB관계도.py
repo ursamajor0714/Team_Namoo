@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Team_Namoo DB ERD 생성기 -> docs/diagram3_erd.html
+# Team_Namoo DB ERD 생성기 -> docs/다이어그램/DB관계도.html
 # 엔티티/컬럼은 origin/server 브랜치 JPA 엔티티 기준.
 
 HDR = 38
@@ -156,7 +156,7 @@ add("cached_news_articles", 1470, 300, 400, "cached_news_articles", "뉴스 캐�
     accent="#6c3fd4")
 
 # canvas 넓힘 (cached_news_articles 오른쪽)
-W = 1900
+W = 2180
 
 def edge(a, b, label, dashed=False, style="ortho"):
     (x1, y1), (x2, y2) = a, b
@@ -237,6 +237,6 @@ html = f'''<!doctype html>
 '''
 
 import pathlib
-out = pathlib.Path(__file__).parent / "diagram3_erd.html"
+out = pathlib.Path(__file__).parent / "DB관계도.html"
 out.write_text(html, encoding="utf-8")
 print("wrote", out)

@@ -37,12 +37,12 @@
 - Spring 백엔드:      `/Users/geunhoyoo/Developer/Team_Namoo/Team_Namoo_server`
 - 분류 API(FastAPI):  `/Users/geunhoyoo/Developer/Team_Namoo/classification-api`
 - 문서 모음:          `/Users/geunhoyoo/Developer/Team_Namoo/docs/`  (색인: docs/README.md)
-  - 로컬 개발환경 설치:  `/Users/geunhoyoo/Developer/Team_Namoo/docs/LOCAL_DEV_SETUP.md`
-  - 백엔드 작업 명세:    `/Users/geunhoyoo/Developer/Team_Namoo/docs/BACKEND_TODO.txt`
-  - 관리자콘솔 프론트안:  `/Users/geunhoyoo/Developer/Team_Namoo/docs/ADMIN_CONSOLE_FRONTEND_PLAN.md`
-  - 관리자콘솔 백엔드 TODO: `/Users/geunhoyoo/Developer/Team_Namoo/docs/ADMIN_CONSOLE_BACKEND_TODO.md`
-  - AWS 배포 계획:       `/Users/geunhoyoo/Developer/Team_Namoo/docs/AWS_DEPLOY_PLAN.txt`
-  - AWS 배포 진행상황:    `/Users/geunhoyoo/Developer/Team_Namoo/docs/AWS_DEPLOY_PROGRESS.txt`
+  - 로컬 개발환경 설치:  `/Users/geunhoyoo/Developer/Team_Namoo/docs/로컬개발환경_설치.md`
+  - 백엔드 작업 명세:    `/Users/geunhoyoo/Developer/Team_Namoo/docs/할일/백엔드_할일.txt`
+  - 관리자콘솔 프론트안:  `/Users/geunhoyoo/Developer/Team_Namoo/docs/할일/관리자콘솔_프론트_구축안.md`
+  - 관리자콘솔 백엔드 TODO: `/Users/geunhoyoo/Developer/Team_Namoo/docs/할일/관리자콘솔_백엔드_할일.md`
+  - AWS 배포 계획:       `/Users/geunhoyoo/Developer/Team_Namoo/docs/배포/AWS배포_계획.txt`
+  - AWS 배포 진행상황:    `/Users/geunhoyoo/Developer/Team_Namoo/docs/배포/AWS배포_진행상황.txt`
 
 ## 3. 오답 노트 및 재발 방지 기록 (Strict Mistake Logs)
 - **[2026-07-20 오답노트 1: Git Remote URL 미확인 및 파일 소멸 수수방관]**

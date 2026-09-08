@@ -57,7 +57,7 @@ Team_Namoo 는 **누구나 쉽고 빠르게 정치 정보를 접할 수 있게**
 | `classification-api` | FastAPI · PyTorch · `klue/bert-base` 파인튜닝 | 기사 제목·본문 → 정치성향 4분류 |
 
 **분류 모델**은 직접 라벨링한 데이터로 재학습해 정확도를 **29% → 68%** 로 끌어올렸습니다.
-학습 과정과 실패한 시도까지 [docs/AI_MODEL_DEV_HISTORY.md](docs/AI_MODEL_DEV_HISTORY.md) 에 기록해 두었습니다.
+학습 과정과 실패한 시도까지 [docs/AI모델/AI모델_개발기록.md](docs/AI모델/AI모델_개발기록.md) 에 기록해 두었습니다.
 
 ## 배포
 
@@ -80,7 +80,7 @@ cd classification-api && .venv/bin/uvicorn main:app --port 8000   # 분류 서�
 ```
 
 git 에 포함하지 않은 것: `Team_Namoo_server/src/main/resources/application-local.properties`(API 키·DB),
-`classification-api/model/latest/`(모델 파일). 설치 상세는 [docs/LOCAL_DEV_SETUP.md](docs/LOCAL_DEV_SETUP.md).
+`classification-api/model/latest/`(모델 파일). 설치 상세는 [docs/로컬개발환경_설치.md](docs/로컬개발환경_설치.md).
 
 ## 문서 · 협업
 

@@ -47,3 +47,7 @@ application-local.properties
 
 # Claude Code 로컬 설정
 .claude/settings.local.json
+
+# 시연 영상 — 용량이 커서 git 에 넣지 않는다.
+# GitHub 이슈/PR 에 끌어다 놓으면 나오는 CDN 링크를 README 에서 쓴다.
+docs/시연영상/
