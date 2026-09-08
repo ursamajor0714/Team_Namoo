@@ -4,6 +4,13 @@
 
 🔗 https://main.d11ftaq8rgsma0.amplifyapp.com
 
+
+
+https://github.com/user-attachments/assets/03a98b9a-9c97-467f-b94e-e790f3784c2c
+
+
+
+
 ---
 
 ## 왜 만들었나
