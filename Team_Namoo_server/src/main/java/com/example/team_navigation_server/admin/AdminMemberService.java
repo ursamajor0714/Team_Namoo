@@ -1,11 +1,18 @@
 package com.example.team_navigation_server.admin;
 
+import com.example.team_navigation_server.ad.AdRepository;
+import com.example.team_navigation_server.board.CommentRepository;
+import com.example.team_navigation_server.board.PostRepository;
+import com.example.team_navigation_server.board.PostVoteRepository;
+import com.example.team_navigation_server.board.PostVoteType;
+import com.example.team_navigation_server.board.ReportRepository;
 import com.example.team_navigation_server.member.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -15,12 +22,31 @@ public class AdminMemberService {
 
     private static final int INACTIVE_DAYS = 30;
 
+    /** 탈퇴 회원이 쓴 글/댓글에 남길 표시명. 글 자체는 지우지 않고 작성자 연결만 끊는다. */
+    private static final String WITHDRAWN_AUTHOR_NAME = "탈퇴한 회원";
+
     private final MemberRepository memberRepository;
     private final PartyRepository partyRepository;
+    private final PostRepository postRepository;
+    private final CommentRepository commentRepository;
+    private final PostVoteRepository postVoteRepository;
+    private final ReportRepository reportRepository;
+    private final AdRepository adRepository;
 
-    public AdminMemberService(MemberRepository memberRepository, PartyRepository partyRepository) {
+    public AdminMemberService(MemberRepository memberRepository,
+                              PartyRepository partyRepository,
+                              PostRepository postRepository,
+                              CommentRepository commentRepository,
+                              PostVoteRepository postVoteRepository,
+                              ReportRepository reportRepository,
+                              AdRepository adRepository) {
         this.memberRepository = memberRepository;
         this.partyRepository = partyRepository;
+        this.postRepository = postRepository;
+        this.commentRepository = commentRepository;
+        this.postVoteRepository = postVoteRepository;
+        this.reportRepository = reportRepository;
+        this.adRepository = adRepository;
     }
 
     public Page<AdminMemberResponse> search(String field, String q, int page, int size) {
@@ -90,6 +116,43 @@ public class AdminMemberService {
         }
         member.setRole(role);
         memberRepository.save(member);
+    }
+
+    /**
+     * 관리자에 의한 회원 탈퇴 - 회원 행을 DB 에서 실제로 지운다(복구 불가).
+     *
+     * 회원을 참조하는 데이터가 있어 그대로 지우면 외래키 제약에 걸리므로 먼저 정리한다.
+     *  - 추천/비추천 기록: 삭제하고, 그만큼 글의 추천수를 되돌린다
+     *  - 그 회원이 넣은 신고: 삭제 (신고자 컬럼이 NOT NULL 이라 남길 수 없다)
+     *  - 그 회원이 등록한 광고: 광고는 남기고 등록자 연결만 끊는다
+     *  - 글/댓글: 글타래가 끊기지 않게 남기고, 작성자 연결만 끊은 뒤 표시명을 '탈퇴한 회원' 으로 바꾼다
+     */
+    @Transactional
+    public void delete(Long id, Member actingAdmin) {
+        Member member = findMember(id);
+
+        if (actingAdmin != null && actingAdmin.getId().equals(member.getId())) {
+            throw new IllegalArgumentException("자기 자신은 탈퇴시킬 수 없습니다.");
+        }
+        if (member.getRole() != MemberRole.USER) {
+            throw new IllegalArgumentException("관리자 계정은 탈퇴시킬 수 없습니다. 먼저 권한을 회원으로 되돌려주세요.");
+        }
+
+        postVoteRepository.findByMember(member).forEach(vote -> {
+            if (vote.getType() == PostVoteType.LIKE) {
+                vote.getPost().decreaseLikes();
+            } else {
+                vote.getPost().decreaseDislikes();
+            }
+            postVoteRepository.delete(vote);
+        });
+
+        reportRepository.deleteAll(reportRepository.findByReporterMember(member));
+        adRepository.findByCreatedBy(member).forEach(ad -> ad.detachCreatedBy());
+        postRepository.findByAuthorMember(member).forEach(post -> post.detachAuthor(WITHDRAWN_AUTHOR_NAME));
+        commentRepository.findByAuthorMember(member).forEach(comment -> comment.detachAuthor(WITHDRAWN_AUTHOR_NAME));
+
+        memberRepository.delete(member);
     }
 
     public Map<String, Object> stats() {

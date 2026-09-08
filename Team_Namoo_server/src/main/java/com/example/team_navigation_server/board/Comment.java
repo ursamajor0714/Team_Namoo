@@ -79,6 +79,12 @@ public class Comment {
         return visibility;
     }
 
+    // 회원 탈퇴 시 호출 - 댓글은 남기고 작성자 연결만 끊는다.
+    public void detachAuthor(String anonymizedName) {
+        this.authorMember = null;
+        this.authorName = anonymizedName;
+    }
+
     public void setVisibility(PostVisibility visibility) {
         this.visibility = visibility;
     }

@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface PostVoteRepository extends JpaRepository<PostVote, Long> {
     Optional<PostVote> findByPostAndMember(Post post, Member member);
+    java.util.List<PostVote> findByMember(Member member);
 }

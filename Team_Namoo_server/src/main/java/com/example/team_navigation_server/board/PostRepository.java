@@ -17,5 +17,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // 관리자용 - 상태/고정 무관 전체
     Page<Post> findByBoard(Board board, Pageable pageable);
 
+    java.util.List<Post> findByAuthorMember(com.example.team_navigation_server.member.Member authorMember);
+
     long countByBoard(Board board);
 }

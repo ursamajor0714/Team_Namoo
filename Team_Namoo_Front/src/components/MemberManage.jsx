@@ -14,6 +14,7 @@ import {
   adminErrorMessage,
   fetchMemberStats,
   fetchMembers,
+  deleteMember,
   updateMember,
   updateMemberRole,
   updateMemberStatus,
@@ -33,14 +34,18 @@ const day = (v) => (v ? v.slice(0, 10) : '—')
 /**
  * 회원 상세 + 수정 모달. 가입 정보를 쭉 보여주고 이 안에서만 수정한다.
  * 맨 아래 관리자 임명/해제는 슈퍼 어드민에게만 보인다.
+ * 탈퇴는 되돌릴 수 없어 한 번 더 확인을 받은 뒤에만 실행한다.
  * status/role 은 서버 enum 값을 그대로 들고 있고 표시할 때만 한글로 바꾼다.
  * @param {{ member: object, canManageRole: boolean, saving: boolean, error: string,
- *           onSave: (draft: object) => void, onClose: () => void }} props
+ *           onSave: (draft: object) => void, onDelete: () => void, onClose: () => void }} props
  */
-function MemberDetailModal({ member, canManageRole, saving, error, onSave, onClose }) {
+function MemberDetailModal({ member, canManageRole, saving, error, onSave, onDelete, onClose }) {
   const [draft, setDraft] = useState(member)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const set = (patch) => setDraft((prev) => ({ ...prev, ...patch }))
+  // 관리자 계정은 서버가 탈퇴를 거부하므로 버튼도 내보내지 않는다.
+  const canDelete = member.role === 'USER'
 
   return (
     <Modal title={`회원 상세 · ${member.loginId}`} onClose={onClose}>
@@ -200,6 +205,42 @@ function MemberDetailModal({ member, canManageRole, saving, error, onSave, onClo
             )}
           </div>
         )}
+
+        {canDelete && (
+          <div className="mm-detail__section">
+            <span className="mm-detail__section-label">회원 탈퇴</span>
+            {confirmingDelete ? (
+              <div className="mm-detail__section-value">
+                <p className="mm__note">
+                  <strong>{member.loginId}</strong> 님을 탈퇴시킵니다. 회원 정보가 DB 에서 삭제되며
+                  되돌릴 수 없습니다. 작성한 글·댓글은 남고 작성자만 '탈퇴한 회원' 으로 바뀝니다.
+                </p>
+                <div className="modal__actions">
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() => setConfirmingDelete(false)}
+                    disabled={saving}
+                  >
+                    아니요
+                  </button>
+                  <button type="button" className="btn btn--primary" onClick={onDelete} disabled={saving}>
+                    {saving ? '탈퇴 처리 중...' : '탈퇴시키기'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setConfirmingDelete(true)}
+                disabled={saving}
+              >
+                회원 탈퇴시키기
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {error && <p className="mm__note">{error}</p>}
@@ -303,6 +344,21 @@ function MemberManage() {
       await load(searchField, searchTerm)
     } catch (error) {
       setSaveErr(adminErrorMessage(error, '저장하지 못했습니다.'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /** 회원 탈퇴 실행. 성공하면 모달을 닫고 목록을 다시 읽는다. */
+  async function removeMember(id) {
+    setSaving(true)
+    setSaveErr('')
+    try {
+      await deleteMember(id)
+      setDetailId(null)
+      await load(searchField, searchTerm)
+    } catch (error) {
+      setSaveErr(adminErrorMessage(error, '탈퇴시키지 못했습니다.'))
     } finally {
       setSaving(false)
     }
@@ -420,6 +476,7 @@ function MemberManage() {
           saving={saving}
           error={saveErr}
           onSave={saveMember}
+          onDelete={() => removeMember(detailMember.id)}
           onClose={() => setDetailId(null)}
         />
       )}

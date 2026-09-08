@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ReportRepository extends JpaRepository<Report, Long> {
+    java.util.List<Report> findByReporterMember(com.example.team_navigation_server.member.Member reporterMember);
     boolean existsByTargetTypeAndTargetIdAndReporterMember(ReportTargetType targetType, Long targetId, Member reporterMember);
 
     Page<Report> findByStatus(ReportStatus status, Pageable pageable);

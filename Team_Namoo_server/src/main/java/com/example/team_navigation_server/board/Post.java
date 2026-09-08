@@ -115,6 +115,12 @@ public class Post {
         return pinned;
     }
 
+    // 회원 탈퇴 시 호출 - 글은 남기고 작성자 연결만 끊는다(표시명은 익명화된 이름으로 바꾼다).
+    public void detachAuthor(String anonymizedName) {
+        this.authorMember = null;
+        this.authorName = anonymizedName;
+    }
+
     public void setPinned(boolean pinned) {
         this.pinned = pinned;
     }

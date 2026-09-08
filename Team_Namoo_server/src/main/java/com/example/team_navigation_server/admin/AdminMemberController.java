@@ -47,6 +47,14 @@ public class AdminMemberController {
         return ResponseEntity.ok().build();
     }
 
+    // 회원 탈퇴 - DB 에서 실제로 지운다. 되돌릴 수 없으므로 프론트에서 확인 절차를 거친다.
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(@PathVariable Long id, HttpServletRequest httpRequest) {
+        Member actingAdmin = (Member) httpRequest.getAttribute("currentAdmin");
+        adminMemberService.delete(id, actingAdmin);
+        return ResponseEntity.ok().build();
+    }
+
     @PatchMapping("/{id}/role")
     public ResponseEntity<?> updateRole(@PathVariable Long id,
                                          @Valid @RequestBody AdminMemberRoleRequest request,

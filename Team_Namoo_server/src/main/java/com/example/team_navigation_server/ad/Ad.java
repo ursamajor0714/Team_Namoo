@@ -81,4 +81,9 @@ public class Ad {
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
+
+    // 등록자 회원이 탈퇴하면 광고는 남기고 연결만 끊는다(created_by 는 nullable).
+    public void detachCreatedBy() {
+        this.createdBy = null;
+    }
 }

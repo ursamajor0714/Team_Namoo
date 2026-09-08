@@ -10,6 +10,7 @@ import { apiClient } from './client'
 //         PATCH /api/admin/members/{id}                    (프로필 필드, 보낸 것만 반영)
 //         PATCH /api/admin/members/{id}/status  { status } (ACTIVE|SUSPENDED|WITHDRAWN)
 //         PATCH /api/admin/members/{id}/role    { role }   (USER|ADMIN, 슈퍼관리자만)
+//         DELETE /api/admin/members/{id}                   (회원 탈퇴, DB 에서 실제 삭제)
 //   기사  GET   /api/admin/articles?party=&scope=&q=       -> AdminArticleResponse[]
 //         PATCH /api/admin/articles/{id}/visibility
 //   게시글 GET   /api/admin/parties/{party}/boards/{boardId}/posts?page=&size=
@@ -85,6 +86,16 @@ export async function updateMemberStatus(id, status) {
  */
 export async function updateMemberRole(id, role) {
   await apiClient.patch(`/api/admin/members/${id}/role`, { role })
+}
+
+/**
+ * 회원 탈퇴. 회원 행을 DB 에서 실제로 지운다 - 되돌릴 수 없다.
+ * 그 회원이 쓴 글·댓글은 지워지지 않고 작성자가 '탈퇴한 회원' 으로 바뀐다.
+ * 관리자 계정과 자기 자신은 서버가 거부한다.
+ * @param {number} id
+ */
+export async function deleteMember(id) {
+  await apiClient.delete(`/api/admin/members/${id}`)
 }
 
 /* ── 기사 ───────────────────────────────────────────── */
