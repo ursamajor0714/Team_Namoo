@@ -2735,3 +2735,62 @@
   font-size: 12px;
   color: #999;
 }
+
+/* 네비바의 AI 체험 - 정당 메뉴와 구분되게 표시한다. */
+.navbar__party--ai {
+  font-weight: 700;
+  color: #1f6feb;
+}
+
+/* 메인 화면 상단 AI 체험 배너 */
+.ai-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 auto 20px;
+  padding: 18px 22px;
+  max-width: 1000px;
+  border: 1px solid #d8e3ff;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #f2f6ff 0%, #fafbff 100%);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.ai-banner:hover {
+  border-color: #1f6feb;
+  transform: translateY(-1px);
+}
+
+.ai-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-banner__title {
+  font-size: 16px;
+}
+
+.ai-banner__sub {
+  font-size: 13px;
+  color: #667;
+}
+
+.ai-banner__cta {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f6feb;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .ai-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
