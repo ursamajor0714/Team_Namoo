@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Modal from '../components/Modal'
+import { useAuthStore } from '../store/authStore'
 import {
   boardErrorMessage,
   createComment,
@@ -72,6 +73,26 @@ function ReportModal({ label, onSubmit, onClose }) {
 }
 
 /**
+ * 글/댓글의 수정·삭제 버튼을 보여줄지 판정한다.
+ *
+ * 서버가 주는 mine 이 정답이지만, 백엔드가 아직 배포되지 않아 mine 이 없을 수 있다
+ * (프론트는 main 푸쉬로 자동 배포되고 백엔드 jar 은 수동 배포라 시차가 생긴다).
+ * 그때 버튼이 통째로 사라지면 기존에 있던 기능이 없어져 버리므로,
+ * 로그인한 사람의 닉네임과 작성자명을 비교하는 값으로 대신 판단한다.
+ * 어차피 실제 권한은 서버가 다시 확인하므로(본인 것만 허용) 폴백이 느슨해도 안전하다.
+ *
+ * @param {{ mine?: boolean, author?: string }} target 글 또는 댓글
+ * @param {{ nickname?: string }|null} user 로그인한 회원
+ * @returns {boolean}
+ */
+function canManage(target, user) {
+  if (typeof target?.mine === 'boolean') {
+    return target.mine
+  }
+  return Boolean(user?.nickname) && target?.author === user.nickname
+}
+
+/**
  * 삭제 확인 모달. 되돌릴 수 없는 동작이라 한 번 더 묻는다.
  * @param {{ label: string, onConfirm: () => Promise<void>, onClose: () => void }} props
  */
@@ -109,12 +130,13 @@ function ConfirmDeleteModal({ label, onConfirm, onClose }) {
 /**
  * 게시글 상세.
  * 글·댓글·추천·신고는 서버와 주고받는다.
- * 수정/삭제는 서버가 내려준 mine(작성자 본인) 이 true 인 글·댓글에만 버튼이 보인다.
+ * 수정/삭제는 작성자 본인의 글·댓글에만 버튼이 보인다(canManage 참고).
  * 스크랩은 아직 백엔드 API 가 없어 안내만 띄운다.
  */
 function PostDetailPage() {
   const { name, boardId, postId } = useParams()
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
   const boardPath = `/party/${encodeURIComponent(name)}/board/${boardId}`
 
   const [post, setPost] = useState(null)
@@ -358,7 +380,7 @@ function PostDetailPage() {
           >
             신고
           </button>
-          {post.mine && (
+          {canManage(post, user) && (
             <>
               <button
                 type="button"
@@ -420,7 +442,7 @@ function PostDetailPage() {
                 >
                   신고
                 </button>
-                {c.mine && (
+                {canManage(c, user) && (
                   <>
                     <button
                       type="button"
