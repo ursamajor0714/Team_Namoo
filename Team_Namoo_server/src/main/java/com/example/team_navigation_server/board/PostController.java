@@ -36,8 +36,8 @@ public class PostController {
     }
 
     @GetMapping("/api/posts/{postId}")
-    public ResponseEntity<PostDetailResponse> getDetail(@PathVariable Long postId) {
-        return ResponseEntity.ok(postService.getDetail(postId));
+    public ResponseEntity<PostDetailResponse> getDetail(@PathVariable Long postId, HttpSession session) {
+        return ResponseEntity.ok(postService.getDetail(postId, (Long) session.getAttribute("loginMemberId")));
     }
 
     @PutMapping("/api/posts/{postId}")
@@ -73,8 +73,8 @@ public class PostController {
     }
 
     @GetMapping("/api/posts/{postId}/comments")
-    public ResponseEntity<List<CommentResponse>> getComments(@PathVariable Long postId) {
-        return ResponseEntity.ok(postService.getComments(postId));
+    public ResponseEntity<List<CommentResponse>> getComments(@PathVariable Long postId, HttpSession session) {
+        return ResponseEntity.ok(postService.getComments(postId, (Long) session.getAttribute("loginMemberId")));
     }
 
     @PostMapping("/api/posts/{postId}/comments")

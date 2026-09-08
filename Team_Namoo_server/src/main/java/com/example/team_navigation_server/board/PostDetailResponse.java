@@ -12,8 +12,10 @@ public class PostDetailResponse {
     private final int likes;
     private final int dislikes;
     private final long commentCount;
+    /** 이 글을 보고 있는 사람이 작성자 본인인가 - 프론트의 수정/삭제 버튼 노출 기준. */
+    private final boolean mine;
 
-    public PostDetailResponse(Post post, long commentCount) {
+    public PostDetailResponse(Post post, long commentCount, Long viewerMemberId) {
         this.id = post.getId();
         this.title = post.getTitle();
         this.content = post.getContent();
@@ -23,6 +25,9 @@ public class PostDetailResponse {
         this.likes = post.getLikes();
         this.dislikes = post.getDislikes();
         this.commentCount = commentCount;
+        this.mine = viewerMemberId != null
+                && post.getAuthorMember() != null
+                && viewerMemberId.equals(post.getAuthorMember().getId());
     }
 
     public Long getId() { return id; }
@@ -34,4 +39,5 @@ public class PostDetailResponse {
     public int getLikes() { return likes; }
     public int getDislikes() { return dislikes; }
     public long getCommentCount() { return commentCount; }
+    public boolean isMine() { return mine; }
 }

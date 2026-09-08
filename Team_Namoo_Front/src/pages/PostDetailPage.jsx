@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import Modal from '../components/Modal'
 import {
   boardErrorMessage,
   createComment,
+  deleteComment,
+  deletePost,
   fetchBoardPosts,
   fetchComments,
   fetchPost,
   reportComment,
   reportPost,
+  updateComment,
+  updatePost,
   votePost,
 } from '../api/boardApi'
 
@@ -68,12 +72,49 @@ function ReportModal({ label, onSubmit, onClose }) {
 }
 
 /**
+ * 삭제 확인 모달. 되돌릴 수 없는 동작이라 한 번 더 묻는다.
+ * @param {{ label: string, onConfirm: () => Promise<void>, onClose: () => void }} props
+ */
+function ConfirmDeleteModal({ label, onConfirm, onClose }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function confirm() {
+    setBusy(true)
+    setError('')
+    try {
+      await onConfirm()
+    } catch (err) {
+      setError(boardErrorMessage(err, '삭제하지 못했습니다.'))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title={`${label} 삭제`} onClose={onClose}>
+      <p className="post-detail__notice">{label}을(를) 삭제할까요? 되돌릴 수 없습니다.</p>
+      {error && <p className="post-detail__notice">{error}</p>}
+      <div className="modal__actions">
+        <button type="button" className="btn btn--ghost" onClick={onClose} disabled={busy}>
+          취소
+        </button>
+        <button type="button" className="btn btn--primary" onClick={confirm} disabled={busy}>
+          {busy ? '삭제 중...' : '삭제'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
+/**
  * 게시글 상세.
- * 글·댓글·추천은 서버와 주고받는다. 신고는 사유를 받아 POST 한다.
- * 스크랩/수정/삭제는 아직 백엔드 API 가 없어 안내만 띄운다.
+ * 글·댓글·추천·신고는 서버와 주고받는다.
+ * 수정/삭제는 서버가 내려준 mine(작성자 본인) 이 true 인 글·댓글에만 버튼이 보인다.
+ * 스크랩은 아직 백엔드 API 가 없어 안내만 띄운다.
  */
 function PostDetailPage() {
   const { name, boardId, postId } = useParams()
+  const navigate = useNavigate()
   const boardPath = `/party/${encodeURIComponent(name)}/board/${boardId}`
 
   const [post, setPost] = useState(null)
@@ -86,6 +127,10 @@ function PostDetailPage() {
   const [notice, setNotice] = useState('')
   const [commentDraft, setCommentDraft] = useState('')
   const [reportTarget, setReportTarget] = useState(null) // { type: 'POST'|'COMMENT', id, label }
+  const [deleteTarget, setDeleteTarget] = useState(null) // { type: 'POST'|'COMMENT', id, label }
+  const [postDraft, setPostDraft] = useState(null) // 글 수정 중이면 { title, content }, 아니면 null
+  const [editingCommentId, setEditingCommentId] = useState(null)
+  const [commentEditDraft, setCommentEditDraft] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -155,6 +200,53 @@ function PostDetailPage() {
     setNotice(`'${label}' 기능은 백엔드 API 가 아직 없어 동작하지 않습니다.`)
   }
 
+  async function handlePostUpdate() {
+    if (!postDraft.title.trim() || !postDraft.content.trim()) {
+      setNotice('제목과 내용을 모두 입력해주세요.')
+      return
+    }
+    try {
+      const updated = await updatePost(postId, {
+        title: postDraft.title.trim(),
+        content: postDraft.content.trim(),
+      })
+      setPost(updated)
+      setPostDraft(null)
+      setNotice('글을 수정했습니다.')
+    } catch (err) {
+      setNotice(boardErrorMessage(err, '글을 수정하지 못했습니다.'))
+    }
+  }
+
+  async function handleCommentUpdate(commentId) {
+    if (!commentEditDraft.trim()) {
+      setNotice('댓글 내용을 입력해주세요.')
+      return
+    }
+    try {
+      await updateComment(commentId, commentEditDraft.trim())
+      setComments(await fetchComments(postId))
+      setEditingCommentId(null)
+      setCommentEditDraft('')
+      setNotice('')
+    } catch (err) {
+      setNotice(boardErrorMessage(err, '댓글을 수정하지 못했습니다.'))
+    }
+  }
+
+  // 삭제는 확인 모달에서만 호출된다. 글은 목록으로 돌아가고, 댓글은 목록만 다시 읽는다.
+  async function confirmDelete() {
+    if (deleteTarget.type === 'POST') {
+      await deletePost(deleteTarget.id)
+      navigate(boardPath)
+      return
+    }
+    await deleteComment(deleteTarget.id)
+    setComments(await fetchComments(postId))
+    setDeleteTarget(null)
+    setNotice('댓글을 삭제했습니다.')
+  }
+
   async function handleCommentSubmit(event) {
     event.preventDefault()
     if (!commentDraft.trim()) {
@@ -195,7 +287,16 @@ function PostDetailPage() {
       </h1>
 
       <article className="post-detail">
-        <h2 className="post-detail__title">{post.title}</h2>
+        {postDraft ? (
+          <input
+            className="board-write__input"
+            value={postDraft.title}
+            onChange={(event) => setPostDraft({ ...postDraft, title: event.target.value })}
+            placeholder="제목"
+          />
+        ) : (
+          <h2 className="post-detail__title">{post.title}</h2>
+        )}
         <div className="post-detail__meta">
           <span>{post.author}</span>
           <span>{fullDate(post.createdAt)}</span>
@@ -204,11 +305,30 @@ function PostDetailPage() {
           <span>댓글 {comments.length}</span>
         </div>
 
-        <div className="post-detail__content">
-          {String(post.content ?? '').split('\n').map((line, i) => (
-            <p key={i}>{line || ' '}</p>
-          ))}
-        </div>
+        {postDraft ? (
+          <div className="post-detail__content">
+            <textarea
+              className="board-write__textarea"
+              value={postDraft.content}
+              onChange={(event) => setPostDraft({ ...postDraft, content: event.target.value })}
+              rows={10}
+            />
+            <div className="modal__actions">
+              <button type="button" className="btn btn--ghost" onClick={() => setPostDraft(null)}>
+                취소
+              </button>
+              <button type="button" className="btn btn--primary" onClick={handlePostUpdate}>
+                저장
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="post-detail__content">
+            {String(post.content ?? '').split('\n').map((line, i) => (
+              <p key={i}>{line || ' '}</p>
+            ))}
+          </div>
+        )}
 
         <div className="post-detail__vote">
           <button
@@ -238,12 +358,24 @@ function PostDetailPage() {
           >
             신고
           </button>
-          <button type="button" className="navbar__btn" onClick={() => showUnavailable('수정')}>
-            수정
-          </button>
-          <button type="button" className="navbar__btn" onClick={() => showUnavailable('삭제')}>
-            삭제
-          </button>
+          {post.mine && (
+            <>
+              <button
+                type="button"
+                className="navbar__btn"
+                onClick={() => setPostDraft({ title: post.title, content: post.content ?? '' })}
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                className="navbar__btn"
+                onClick={() => setDeleteTarget({ type: 'POST', id: postId, label: '게시글' })}
+              >
+                삭제
+              </button>
+            </>
+          )}
         </div>
         {notice && <p className="post-detail__notice">{notice}</p>}
       </article>
@@ -288,8 +420,56 @@ function PostDetailPage() {
                 >
                   신고
                 </button>
+                {c.mine && (
+                  <>
+                    <button
+                      type="button"
+                      className="post-comments__report"
+                      onClick={() => {
+                        setEditingCommentId(c.id)
+                        setCommentEditDraft(c.content ?? '')
+                      }}
+                    >
+                      수정
+                    </button>
+                    <button
+                      type="button"
+                      className="post-comments__report"
+                      onClick={() => setDeleteTarget({ type: 'COMMENT', id: c.id, label: '댓글' })}
+                    >
+                      삭제
+                    </button>
+                  </>
+                )}
               </div>
-              <p className="post-comments__body">{c.content}</p>
+              {editingCommentId === c.id ? (
+                <div className="post-comments__body">
+                  <textarea
+                    className="board-write__textarea"
+                    value={commentEditDraft}
+                    onChange={(event) => setCommentEditDraft(event.target.value)}
+                    rows={3}
+                  />
+                  <div className="modal__actions">
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() => setEditingCommentId(null)}
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      onClick={() => handleCommentUpdate(c.id)}
+                    >
+                      저장
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="post-comments__body">{c.content}</p>
+              )}
             </li>
           ))}
         </ul>
@@ -318,6 +498,14 @@ function PostDetailPage() {
           label={reportTarget.label}
           onSubmit={submitReport}
           onClose={() => setReportTarget(null)}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          label={deleteTarget.label}
+          onConfirm={confirmDelete}
+          onClose={() => setDeleteTarget(null)}
         />
       )}
     </>

@@ -5,12 +5,17 @@ import { apiClient } from './client'
 //   GET  /api/parties/{party}/boards/{boardId}/posts?page=&size= -> { notices, posts, totalCount }
 //   POST /api/parties/{party}/boards/{boardId}/posts { title, content } -> 201 PostDetailResponse
 //   GET  /api/posts/{postId}                  -> PostDetailResponse (조회수 증가)
+//   PUT  /api/posts/{postId} { title, content }   -> PostDetailResponse   (본인 글만)
+//   DELETE /api/posts/{postId}                    -> 200                  (본인 글만)
 //   POST /api/posts/{postId}/vote { type }    -> { likes, dislikes, myVote }  type: LIKE|DISLIKE
 //   GET  /api/posts/{postId}/comments         -> CommentResponse[]
 //   POST /api/posts/{postId}/comments { content } -> 201 CommentResponse
+//   PUT  /api/comments/{commentId} { content }    -> CommentResponse      (본인 댓글만)
+//   DELETE /api/comments/{commentId}              -> 200                  (본인 댓글만)
 //   POST /api/posts/{postId}/report { reason }    -> 201
 //   POST /api/comments/{commentId}/report { reason } -> 201
 //
+// 글/댓글 응답의 mine 은 '보고 있는 사람이 작성자 본인인가' 로, 수정/삭제 버튼 노출 기준이다.
 // 실패 시 백엔드는 한글 메시지 문자열을 그대로 body 로 준다(GlobalExceptionHandler).
 
 /** 한 번에 받아올 글 수. 목록에 페이지 이동 UI 가 없어 넉넉히 한 번에 받는다. */
@@ -78,6 +83,42 @@ export async function fetchComments(postId) {
 export async function createComment(postId, content) {
   const response = await apiClient.post(`/api/posts/${postId}/comments`, { content })
   return response.data
+}
+
+/**
+ * 본인 글 수정.
+ * @param {string|number} postId
+ * @param {{ title: string, content: string }} draft
+ */
+export async function updatePost(postId, draft) {
+  const response = await apiClient.put(`/api/posts/${postId}`, draft)
+  return response.data
+}
+
+/**
+ * 본인 글 삭제. 서버는 실제로 지우지 않고 노출 상태만 바꾼다(복구 가능).
+ * @param {string|number} postId
+ */
+export async function deletePost(postId) {
+  await apiClient.delete(`/api/posts/${postId}`)
+}
+
+/**
+ * 본인 댓글 수정.
+ * @param {string|number} commentId
+ * @param {string} content
+ */
+export async function updateComment(commentId, content) {
+  const response = await apiClient.put(`/api/comments/${commentId}`, { content })
+  return response.data
+}
+
+/**
+ * 본인 댓글 삭제. 글과 마찬가지로 노출 상태만 바뀐다.
+ * @param {string|number} commentId
+ */
+export async function deleteComment(commentId) {
+  await apiClient.delete(`/api/comments/${commentId}`)
 }
 
 /**

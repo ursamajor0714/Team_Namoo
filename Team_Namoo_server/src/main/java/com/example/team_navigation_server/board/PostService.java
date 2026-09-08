@@ -65,22 +65,22 @@ public class PostService {
 
         Post post = new Post(board, member, authorName, request.getTitle(), request.getContent());
         postRepository.save(post);
-        return new PostDetailResponse(post, 0);
+        return new PostDetailResponse(post, 0, memberId);
     }
 
     @Transactional
-    public PostDetailResponse getDetail(Long postId) {
+    public PostDetailResponse getDetail(Long postId, Long viewerMemberId) {
         Post post = findVisiblePost(postId);
         post.increaseViews();
         long commentCount = commentCount(post);
-        return new PostDetailResponse(post, commentCount);
+        return new PostDetailResponse(post, commentCount, viewerMemberId);
     }
 
-    public List<CommentResponse> getComments(Long postId) {
+    public List<CommentResponse> getComments(Long postId, Long viewerMemberId) {
         Post post = findVisiblePost(postId);
         return commentRepository.findByPostAndVisibilityOrderByIdAsc(post, PostVisibility.NORMAL)
                 .stream()
-                .map(CommentResponse::new)
+                .map(comment -> new CommentResponse(comment, viewerMemberId))
                 .toList();
     }
 
@@ -92,7 +92,7 @@ public class PostService {
 
         Comment comment = new Comment(post, member, authorName, request.getContent());
         commentRepository.save(comment);
-        return new CommentResponse(comment);
+        return new CommentResponse(comment, memberId);
     }
 
     // 본인 글 수정 - 익명 글(authorMember 없음)은 소유자 특정이 안 돼서 수정 대상이 아니다.
@@ -101,7 +101,7 @@ public class PostService {
         Post post = findVisiblePost(postId);
         requireOwner(post.getAuthorMember(), memberId);
         post.updateContent(request.getTitle(), request.getContent());
-        return new PostDetailResponse(post, commentCount(post));
+        return new PostDetailResponse(post, commentCount(post), memberId);
     }
 
     // 본인 글 삭제 - 관리자 삭제와 동일하게 실제로 안 지우고 visibility만 DELETED로(복구 가능, 신고 이력 등 유지)
@@ -117,7 +117,7 @@ public class PostService {
         Comment comment = findVisibleComment(commentId);
         requireOwner(comment.getAuthorMember(), memberId);
         comment.updateContent(request.getContent());
-        return new CommentResponse(comment);
+        return new CommentResponse(comment, memberId);
     }
 
     @Transactional
