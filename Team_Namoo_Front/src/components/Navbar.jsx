@@ -30,6 +30,9 @@ function Navbar({ user, onLogout }) {
       </nav>
 
       <div className="navbar__auth">
+        <Link to="/ai" className="navbar__btn">
+          AI 체험
+        </Link>
         {user ? (
           <>
             {isAdmin(user) && (

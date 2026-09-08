@@ -2319,3 +2319,419 @@
   color: #1f1f1f;
   border-color: #dadce0;
 }
+
+/* ── AI 체험 페이지 (/ai) ───────────────────────────── */
+.ai-demo {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+.ai-demo__title {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+.ai-demo__lead {
+  color: #555;
+  line-height: 1.7;
+  margin: 0 0 8px;
+}
+
+.ai-demo__lead:last-of-type {
+  margin-bottom: 24px;
+}
+
+/* '저장하지 않습니다' 같은 부가 안내는 한 단계 낮춰 보이게 한다. */
+.ai-demo__lead--muted {
+  font-size: 13px;
+  color: #888;
+}
+
+.ai-demo__samples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ai-demo__samples-label {
+  font-size: 13px;
+  color: #777;
+  margin-right: 4px;
+}
+
+.ai-demo__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid #d5d5d5;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.ai-demo__count {
+  text-align: right;
+  font-size: 12px;
+  color: #999;
+  margin-top: 6px;
+}
+
+.ai-demo__run {
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px;
+  font-size: 16px;
+}
+
+.ai-demo__error {
+  margin-top: 16px;
+  color: #c0392b;
+}
+
+.ai-demo__verdict {
+  margin-top: 24px;
+  padding: 24px;
+  border-radius: 10px;
+  border-left: 6px solid #999;
+  background: #f6f6f6;
+  text-align: center;
+}
+
+.ai-demo__verdict-text {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.ai-demo__verdict-text strong {
+  font-size: 24px;
+}
+
+.ai-demo__verdict-sub {
+  margin: 10px 0 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.ai-demo__verdict--progressive { border-left-color: #1f6feb; background: #eef4ff; }
+.ai-demo__verdict--conservative { border-left-color: #d93025; background: #fdeeed; }
+.ai-demo__verdict--neutral { border-left-color: #7a7a7a; background: #f2f2f2; }
+.ai-demo__verdict--undetermined { border-left-color: #b58900; background: #fdf6e3; }
+
+.ai-demo__tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ai-demo__tab {
+  padding: 8px 16px;
+  border: 1px solid #d5d5d5;
+  border-radius: 20px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.ai-demo__tab--on {
+  border-color: #222;
+  background: #222;
+  color: #fff;
+}
+
+.ai-demo__url {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid #d5d5d5;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.ai-demo__hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #888;
+  line-height: 1.6;
+}
+
+.ai-demo__verdict-source {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #666;
+}
+
+/* ── AI 체험 페이지 하단 개발 기록 ─────────────────── */
+.devlog {
+  margin-top: 56px;
+  padding-top: 40px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.devlog__title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+.devlog__lead {
+  color: #555;
+  line-height: 1.7;
+  margin: 0 0 8px;
+}
+
+.devlog__lead:last-of-type {
+  margin-bottom: 28px;
+}
+
+.devlog__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.devlog-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 16px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.devlog-card__value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.devlog-card__label {
+  font-size: 14px;
+  color: #333;
+}
+
+.devlog-card__sub {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.5;
+}
+
+.devlog__heading {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 36px 0 16px;
+}
+
+.devlog__timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid #e5e5e5;
+}
+
+.devlog-step {
+  position: relative;
+  padding: 0 0 24px 24px;
+}
+
+.devlog-step::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #222;
+}
+
+.devlog-step__date {
+  display: block;
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.devlog-step__title {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.devlog-step__detail {
+  margin: 0;
+  color: #555;
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.devlog__troubles {
+  display: grid;
+  gap: 12px;
+}
+
+.devlog-trouble {
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: #fdf6e3;
+  border-left: 4px solid #b58900;
+}
+
+.devlog-trouble__title {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+
+.devlog-trouble__detail {
+  margin: 0;
+  color: #555;
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.devlog__limits {
+  margin: 0;
+  padding-left: 20px;
+  color: #555;
+  line-height: 1.9;
+  font-size: 14px;
+}
+
+.devlog__foot {
+  margin: 32px 0 0;
+  padding: 18px 20px;
+  border-radius: 10px;
+  background: #f0f4ff;
+  color: #333;
+  line-height: 1.8;
+  font-size: 14px;
+}
+
+.devlog-step__phase {
+  display: block;
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #1f6feb;
+}
+
+.devlog-step:not(:first-child) .devlog-step__phase {
+  margin-top: 16px;
+}
+
+.devlog__foot--sub {
+  margin-top: 10px;
+  background: #fafafa;
+  color: #555;
+}
+
+/* 기술 구성 표 */
+.devlog__spec {
+  margin: 0;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.devlog-spec {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #eee;
+}
+
+.devlog-spec:last-child {
+  border-bottom: none;
+}
+
+.devlog-spec__label {
+  margin: 0;
+  font-size: 13px;
+  color: #888;
+  padding-top: 2px;
+}
+
+.devlog-spec__body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.devlog-spec__value {
+  font-size: 15px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  letter-spacing: -0.01em;
+}
+
+.devlog-spec__note {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.7;
+}
+
+@media (max-width: 560px) {
+  .devlog-spec {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+/* 라벨별 성적표 */
+.devlog__note {
+  margin: 0 0 12px;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.devlog__table-wrap {
+  overflow-x: auto;
+  margin-bottom: 14px;
+}
+
+.devlog-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.devlog-table th,
+.devlog-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.devlog-table thead th {
+  font-size: 12px;
+  color: #888;
+  font-weight: 500;
+  border-bottom: 1px solid #ddd;
+}
+
+.devlog-table tbody th {
+  font-weight: 700;
+  width: 96px;
+}
+
+.devlog-table td strong {
+  font-size: 16px;
+}
+
+.devlog-table__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #999;
+}

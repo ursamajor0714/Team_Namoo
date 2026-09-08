@@ -33,7 +33,17 @@ public class ClassificationModelClient {
         this.properties = properties;
     }
 
+    /**
+     * 라벨만 필요한 곳(뉴스 캐시 분류)에서 쓴다.
+     */
     public PoliticalLeaning classify(String title, String body) throws IOException {
+        return classifyWithConfidence(title, body).leaning();
+    }
+
+    /**
+     * 라벨과 확신도를 함께 돌려준다. 데모 페이지에서 '얼마나 확신하는지' 를 같이 보여주려고 쓴다.
+     */
+    public ClassificationResult classifyWithConfidence(String title, String body) throws IOException {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("title", title == null ? "" : title);
         root.put("body", body == null ? "" : body);
@@ -51,7 +61,8 @@ public class ClassificationModelClient {
             }
             JsonNode parsed = objectMapper.readTree(responseBody);
             String label = parsed.path("정치성향").asText("");
-            return PoliticalLeaning.fromLabel(label);
+            double confidence = parsed.path("확신도").asDouble(0);
+            return new ClassificationResult(PoliticalLeaning.fromLabel(label), confidence);
         }
     }
 }
