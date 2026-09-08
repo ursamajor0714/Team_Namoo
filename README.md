@@ -1,6 +1,8 @@
 
 
-Uploading 관리자대시보드.mov…
+https://github.com/user-attachments/assets/00bed845-0988-4c41-b26b-74e2b94f2fd2
+
+
 
 # Team_Namoo
 
@@ -8,9 +10,6 @@ Uploading 관리자대시보드.mov…
 
 🔗 https://main.d11ftaq8rgsma0.amplifyapp.com
 
-
-
-https://github.com/user-attachments/assets/03a98b9a-9c97-467f-b94e-e790f3784c2c
 
 
 
